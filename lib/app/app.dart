@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sutra_app/features/chat/chat_screen.dart';
-import 'package:sutra_app/features/files/files_screen.dart';
-import 'package:sutra_app/features/models/models_screen.dart';
-import 'package:sutra_app/features/settings/settings_screen.dart';
+import 'package:sutra/features/chat/chat_screen.dart';
+import 'package:sutra/features/files/files_screen.dart';
+import 'package:sutra/features/models/models_screen.dart';
+import 'package:sutra/features/settings/settings_screen.dart';
 
 class SutraApp extends StatelessWidget {
   const SutraApp({super.key});
