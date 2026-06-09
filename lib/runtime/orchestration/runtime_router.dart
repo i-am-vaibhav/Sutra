@@ -1,17 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../device/device_provider.dart';
-import '../models/model_selector.dart';
 import '../models/model_definition.dart';
+import '../models/model_policy.dart';
 
 class RuntimeRouter {
-
   final Ref ref;
 
   RuntimeRouter(this.ref);
 
-  Future<ModelDefinition> resolveModel() async {
+  Future<ModelDefinition> resolveChatModel() async {
     final tier = await ref.read(deviceTierProvider.future);
-    return ModelSelector.select(tier);
+
+    final models = ModelPolicy.required(tier);
+
+    if (models.isEmpty) {
+      throw Exception('No models available for device tier: $tier');
+    }
+
+    return models.last;
+  }
+
+  Future<List<ModelDefinition>> resolveAvailableModels() async {
+    final tier = await ref.read(deviceTierProvider.future);
+    return ModelPolicy.required(tier);
   }
 }

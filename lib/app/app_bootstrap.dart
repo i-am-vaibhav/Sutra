@@ -1,17 +1,32 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sutra/app/bootstrap.dart';
+import 'app.dart';
 
-import '../runtime/device/device_provider.dart';
-import '../runtime/models/model_policy.dart';
-import '../runtime/models/model_provisioning_service.dart';
+class AppBootstrap extends ConsumerStatefulWidget {
+  const AppBootstrap({super.key});
 
-Future<void> bootstrapModels(WidgetRef ref) async {
-  final tier = await ref.read(deviceTierProvider.future);
+  @override
+  ConsumerState<AppBootstrap> createState() => _AppBootstrapState();
+}
 
-  final service = ref.read(modelProvisioningServiceProvider);
+class _AppBootstrapState extends ConsumerState<AppBootstrap> {
+  bool _initialized = false;
 
-  final requiredModels = ModelPolicy.required(tier)
-      .map((m) => m.id)
-      .toList();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-  await service.provision(requiredModels);
+    if (_initialized) return;
+    _initialized = true;
+
+    Future.microtask(() async {
+      await bootstrapModels(ref);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const SutraApp();
+  }
 }

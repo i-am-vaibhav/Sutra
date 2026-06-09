@@ -41,6 +41,8 @@ dependencies:
   path_provider: ^2.1.5
   path: ^1.8.4
   uuid: ^3.0.7
+  dio: ^5.9.2
+  ffi: ^2.1.3
 
 dev_dependencies:
   flutter_test:
