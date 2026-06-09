@@ -1,3 +1,3 @@
 abstract class LlmRuntime {
-  Future<String> generate(String prompt);
+  Stream<String> generateStream(String prompt);
 }
