@@ -13,7 +13,12 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
 
   ChatNotifier(this.ref) : super([]);
 
+  String? _activeSessionId;
+
   void sendMessage(String text) async {
+    final runtime = ref.read(runtimeProvider);
+
+    // 1. user message
     final userMessage = ChatMessage(
       id: DateTime.now().toIso8601String(),
       text: text,
@@ -23,12 +28,16 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
 
     state = [...state, userMessage];
 
-    final runtime = ref.read(runtimeProvider);
+    // 2. create stable session id for assistant stream
+    final sessionId = DateTime.now().microsecondsSinceEpoch.toString();
+    _activeSessionId = sessionId;
 
-    final sessionId = DateTime.now().toIso8601String();
     String buffer = "";
 
     await for (final token in runtime.generateStream(text)) {
+      // if a newer request started, ignore old stream
+      if (_activeSessionId != sessionId) return;
+
       buffer += token;
 
       final existingIndex =
@@ -48,6 +57,21 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
         newState[existingIndex] = updatedMessage;
         state = newState;
       }
+    }
+
+    // 3. finalize (lock message properly)
+    final finalIndex =
+    state.indexWhere((m) => m.id == sessionId);
+
+    if (finalIndex != -1) {
+      final finalState = [...state];
+      finalState[finalIndex] = ChatMessage(
+        id: sessionId,
+        text: buffer,
+        role: ChatRole.assistant,
+        createdAt: DateTime.now(),
+      );
+      state = finalState;
     }
   }
 }
