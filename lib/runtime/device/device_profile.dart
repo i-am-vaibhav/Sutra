@@ -1,11 +1,13 @@
 class DeviceProfile {
-  final int ramGB;
-  final int cores;
-  final bool isMobile;
+  final int ramMB;
+  final int cpuCores;
+  final bool hasGpu;
+  final String platform;
 
   DeviceProfile({
-    required this.ramGB,
-    required this.cores,
-    required this.isMobile,
+    required this.ramMB,
+    required this.cpuCores,
+    required this.hasGpu,
+    required this.platform,
   });
 }

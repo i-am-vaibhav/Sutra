@@ -1,12 +1,17 @@
-import 'device_profile.dart';
+import 'package:flutter/services.dart';
+import '../device/device_profile.dart';
 
 class DeviceDetector {
-  static DeviceProfile detect() {
-    // MVP heuristic (we improve later via platform channels)
+  static const _channel = MethodChannel('sutra/device');
+
+  static Future<DeviceProfile> getProfile() async {
+    final raw = await _channel.invokeMethod('getDeviceProfile');
+
     return DeviceProfile(
-      ramGB: 16, // Pixel 9 baseline assumption for now
-      cores: 8,
-      isMobile: true,
+      ramMB: raw['ramMB'],
+      cpuCores: raw['cpuCores'],
+      hasGpu: raw['hasGpu'],
+      platform: raw['platform'],
     );
   }
 }
