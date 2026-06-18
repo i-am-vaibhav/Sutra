@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../device/device_provider.dart';
-import '../models/model_definition.dart';
-import '../models/model_policy.dart';
+import 'package:sutra/runtime/device/device_provider.dart';
+import 'package:sutra/runtime/models/model_definition.dart';
+import 'package:sutra/runtime/models/model_policy.dart';
 
 class RuntimeRouter {
   final Ref ref;

@@ -67,3 +67,8 @@ models/*
 # Runtime caches
 cache/
 downloads/
+
+# CocoaPods (removed — using Swift Package Manager)
+**/Podfile.lock
+**/Pods/
+ios/sutra_native/

@@ -5,6 +5,8 @@ class RuntimeManager {
 
   RuntimeManager(this.llm);
 
+  bool get isReady => llm.isReady;
+
   Stream<String> generateStream(String prompt) {
     return llm.generateStream(prompt);
   }

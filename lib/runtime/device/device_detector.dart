@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import '../device/device_profile.dart';
+import 'package:sutra/runtime/device/device_profile.dart';
 
 class DeviceDetector {
   static const _channel = MethodChannel('sutra/device');
@@ -11,6 +11,8 @@ class DeviceDetector {
       ramMB: raw['ramMB'],
       cpuCores: raw['cpuCores'],
       hasGpu: raw['hasGpu'],
+      gpuName: raw['gpuName'] as String? ?? 'none',
+      gpuFamily: raw['gpuFamily'] as String? ?? 'none',
       platform: raw['platform'],
     );
   }

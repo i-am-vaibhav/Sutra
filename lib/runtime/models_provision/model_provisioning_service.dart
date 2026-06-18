@@ -1,16 +1,16 @@
 import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sutra/runtime/models/model_definition.dart';
-
-import 'model_downloader.dart';
-import 'model_store.dart';
-import 'model_queue.dart';
-import 'model_provisioning_state.dart';
-import 'model_downloader_provider.dart';
-import 'model_store_provider.dart';
+import 'package:sutra/runtime/models_provision/model_downloader.dart';
+import 'package:sutra/runtime/models_provision/model_downloader_provider.dart';
+import 'package:sutra/runtime/models_provision/model_provisioning_state.dart';
+import 'package:sutra/runtime/models_provision/model_queue.dart';
+import 'package:sutra/runtime/models_provision/model_store.dart';
+import 'package:sutra/runtime/models_provision/model_store_provider.dart';
 
 final modelProvisioningServiceProvider =
-Provider<ModelProvisioningService>((ref) {
+    Provider<ModelProvisioningService>((ref) {
   final downloader = ref.read(modelDownloaderProvider);
   final store = ref.read(modelStoreProvider);
 
@@ -26,11 +26,17 @@ class ModelProvisioningService {
 
   final ModelQueue queue = ModelQueue();
 
+  /// Maps model IDs to their definitions for queued downloads.
+  final Map<String, ModelDefinition> _pendingModels = {};
+
+  /// Whether a download is currently in progress.
+  bool _activeDownload = false;
+
   ModelProvisioningState _state =
-  ModelProvisioningState.empty();
+      ModelProvisioningState.empty();
 
   final _controller =
-  StreamController<ModelProvisioningState>.broadcast();
+      StreamController<ModelProvisioningState>.broadcast();
 
   Stream<ModelProvisioningState> get stream =>
       _controller.stream;
@@ -50,6 +56,7 @@ class ModelProvisioningService {
     _emit();
   }
 
+  /// Enqueue models for sequential download.
   Future<void> provision(
       List<ModelDefinition> requiredModels,
       ) async {
@@ -65,12 +72,72 @@ class ModelProvisioningService {
       }
 
       queue.add(modelId);
-
-      unawaited(
-        _download(model),
-      );
+      _pendingModels[modelId] = model;
     }
+
+    _processQueue();
   }
+
+  /// Retry a previously-failed download.
+  ///
+  /// Clears the failure state, re-queues the model at the front
+  /// of the download queue, and kicks off the next download.
+  Future<void> retry(ModelDefinition model) async {
+    final modelId = model.id;
+
+    // Clear the failure state.
+    final failed = {..._state.failed};
+    failed.remove(modelId);
+    final retryAttempts = {..._state.retryAttempts};
+    retryAttempts.remove(modelId);
+
+    _state = _state.copyWith(
+      failed: failed,
+      retryAttempts: retryAttempts,
+    );
+
+    _emit();
+
+    // Remove stale entry (if any) then insert at the front.
+    queue.remove(modelId);
+    queue.addFirst(modelId);
+    _pendingModels[modelId] = model;
+    _processQueue();
+  }
+
+  // ── Sequential queue processor ──────────────────────────
+
+  void _processQueue() {
+    if (_activeDownload) return;
+    if (queue.isEmpty) return;
+
+    final nextId = queue.next;
+    if (nextId == null) return;
+
+    // Skip models that were installed while queued.
+    if (_state.installed.contains(nextId)) {
+      queue.remove(nextId);
+      _pendingModels.remove(nextId);
+      _processQueue();
+      return;
+    }
+
+    final model = _pendingModels[nextId];
+    if (model == null) {
+      queue.remove(nextId);
+      _processQueue();
+      return;
+    }
+
+    _activeDownload = true;
+    _download(model).catchError((_) {}).whenComplete(() {
+      _activeDownload = false;
+      _pendingModels.remove(nextId);
+      _processQueue();
+    });
+  }
+
+  // ── Single-model download ───────────────────────────────
 
   Future<void> _download(
       ModelDefinition model,
@@ -86,45 +153,76 @@ class ModelProvisioningService {
 
     _emit();
 
-    await downloader.download(
-      model: model,
-      onProgress: (progress) {
-        final updatedProgress = {
-          ..._state.progress,
-          modelId: progress,
-        };
+    try {
+      await downloader.download(
+        model: model,
+        onProgress: (progress) {
+          final updatedProgress = {
+            ..._state.progress,
+            modelId: progress,
+          };
 
-        _state = _state.copyWith(
-          progress: updatedProgress,
-        );
+          _state = _state.copyWith(
+            progress: updatedProgress,
+          );
 
-        _emit();
-      },
-    );
+          _emit();
+        },
+        onRetry: (attempt) {
+          final retryAttempts = {
+            ..._state.retryAttempts,
+            modelId: attempt,
+          };
 
-    queue.remove(modelId);
+          _state = _state.copyWith(
+            retryAttempts: retryAttempts,
+          );
 
-    final installed = {
-      ..._state.installed,
-      modelId,
-    };
+          _emit();
+        },
+      );
 
-    final downloading = {
-      ..._state.downloading,
-    };
+      // Success — mark installed.
+      queue.remove(modelId);
 
-    downloading.remove(modelId);
+      final installed = {
+        ..._state.installed,
+        modelId,
+      };
 
-    _state = _state.copyWith(
-      installed: installed,
-      downloading: downloading,
-    );
+      final downloading = {..._state.downloading};
+      downloading.remove(modelId);
 
-    await store.saveInstalled(
-      installed,
-    );
+      final retryAttempts = {..._state.retryAttempts};
+      retryAttempts.remove(modelId);
 
-    _emit();
+      _state = _state.copyWith(
+        installed: installed,
+        downloading: downloading,
+        retryAttempts: retryAttempts,
+      );
+
+      await store.saveInstalled(installed);
+      _emit();
+    } catch (_) {
+      // All retries exhausted — mark as failed.
+      queue.remove(modelId);
+
+      final downloading = {..._state.downloading};
+      downloading.remove(modelId);
+
+      final failed = {..._state.failed, modelId};
+      final retryAttempts = {..._state.retryAttempts};
+      retryAttempts.remove(modelId);
+
+      _state = _state.copyWith(
+        downloading: downloading,
+        failed: failed,
+        retryAttempts: retryAttempts,
+      );
+
+      _emit();
+    }
   }
 
   void _emit() {

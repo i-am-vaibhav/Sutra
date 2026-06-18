@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sutra/app/theme/app_theme.dart';
 import 'package:sutra/features/chat/chat_screen.dart';
 import 'package:sutra/features/files/files_screen.dart';
 import 'package:sutra/features/models/models_screen.dart';
@@ -9,63 +11,107 @@ class SutraApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Sutra',
-      theme: ThemeData(
-        useMaterial3: true,
-      ),
-      home: const HomeShell(),
+      theme: AppTheme.dark(),
+      routerConfig: _router,
     );
   }
 }
 
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
+final _router = GoRouter(
+  navigatorKey: _rootNavigatorKey,
+  initialLocation: '/chat',
+  routes: [
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return HomeShell(navigationShell: navigationShell);
+      },
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/chat',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: ChatScreen(),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/files',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: FilesScreen(),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/models',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: ModelsScreen(),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: SettingsScreen(),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+);
 
-class _HomeShellState extends State<HomeShell> {
-  int currentIndex = 0;
+class HomeShell extends StatelessWidget {
+  final StatefulNavigationShell navigationShell;
 
-  final screens = const [
-    ChatScreen(),
-    FilesScreen(),
-    ModelsScreen(),
-    SettingsScreen(),
-  ];
+  const HomeShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sutra'),
-      ),
-      body: screens[currentIndex],
+      body: navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
+        selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            currentIndex = index;
-          });
+          navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          );
         },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.chat_outlined),
+            selectedIcon: Icon(Icons.chat),
             label: 'Chat',
           ),
           NavigationDestination(
             icon: Icon(Icons.folder_outlined),
+            selectedIcon: Icon(Icons.folder),
             label: 'Files',
           ),
           NavigationDestination(
             icon: Icon(Icons.memory_outlined),
+            selectedIcon: Icon(Icons.memory),
             label: 'Models',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],

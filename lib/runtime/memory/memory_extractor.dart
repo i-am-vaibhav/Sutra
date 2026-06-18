@@ -1,4 +1,4 @@
-import 'memory_item.dart';
+import 'package:sutra/runtime/memory/memory_item.dart';
 
 class MemoryExtractor {
   List<MemoryItem> extract(String userMessage, String assistantReply) {

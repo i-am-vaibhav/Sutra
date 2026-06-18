@@ -1,5 +1,5 @@
-import 'device_profile.dart';
-import 'device_tier.dart';
+import 'package:sutra/runtime/device/device_profile.dart';
+import 'package:sutra/runtime/device/device_tier.dart';
 
 class DeviceScoringEngine {
 
@@ -24,9 +24,14 @@ class DeviceScoringEngine {
       score += 1;
     }
 
-    // GPU bonus (light weight signal)
-    if (p.hasGpu) {
-      score += 1;
+    // GPU scoring — tiered by capability
+    switch (p.gpuFamily) {
+      case 'high':
+        score += 2;
+      case 'mid':
+        score += 1;
+      default:
+        break;
     }
 
     // Platform bias (optional tuning)

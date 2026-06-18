@@ -22,21 +22,6 @@ android {
             abiFilters.clear()
             abiFilters.add("arm64-v8a")
         }
-
-        externalNativeBuild {
-            cmake {
-                cppFlags += ""
-                arguments += listOf(
-                    "-DANDROID_STL=c++_shared"
-                )
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-        }
     }
 
     compileOptions {
@@ -59,4 +44,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
 }
