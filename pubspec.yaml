@@ -30,6 +30,7 @@ dependencies:
   dio: ^5.9.2
   html: ^0.15.6
   url_launcher: ^6.3.2
+  wakelock_plus: ^1.6.1
 
 dev_dependencies:
   flutter_test:

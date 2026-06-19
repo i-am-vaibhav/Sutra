@@ -9,6 +9,7 @@ import 'package:sutra/runtime/device/device_profile.dart';
 import 'package:sutra/runtime/device/device_tier.dart';
 import 'package:sutra/runtime/provisioning/wifi_only_provider.dart';
 import 'package:sutra/runtime/pipeline/context_builder.dart';
+import 'package:sutra/runtime/settings/keep_screen_on_provider.dart';
 import 'package:sutra/runtime/tts/tts_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -55,6 +56,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           _ReadAloudSection(colorScheme: colorScheme),
+          const SizedBox(height: 8),
+          _KeepScreenOnToggle(colorScheme: colorScheme),
 
           const SizedBox(height: 24),
 
@@ -435,6 +438,55 @@ class _UserProfileFieldsState extends ConsumerState<_UserProfileFields> {
 }
 
 // ── Document List Section ───────────────────────────────────
+
+// ── Keep Screen On Toggle ────────────────────────────────
+
+class _KeepScreenOnToggle extends ConsumerWidget {
+  final ColorScheme colorScheme;
+  const _KeepScreenOnToggle({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(keepScreenOnProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              enabled ? Icons.screen_lock_rotation : Icons.screen_lock_portrait,
+              size: 20,
+              color: enabled ? colorScheme.primary : colorScheme.outline,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Keep Screen On', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    enabled
+                        ? 'Screen stays on for 5 min of inactivity'
+                        : 'Screen follows system sleep timeout',
+                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: enabled,
+              onChanged: (value) {
+                ref.read(keepScreenOnProvider.notifier).toggle(value);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ── Theme Toggle Section ────────────────────────────────────
 

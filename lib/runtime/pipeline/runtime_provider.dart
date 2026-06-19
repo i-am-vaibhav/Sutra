@@ -1,6 +1,7 @@
 import 'package:sutra/core/logging/log.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sutra/runtime/llm/llama_cpp_runtime.dart';
+import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/models/model_registry.dart';
 import 'package:sutra/runtime/provisioning/model_database.dart';
 import 'package:sutra/runtime/provisioning/model_paths.dart';
@@ -25,14 +26,21 @@ final runtimeProvider = FutureProvider<RuntimeManager>((ref) async {
   final selectedId = ref.watch(selectedModelIdProvider);
   Log.d('[runtimeProvider] selectedId=$selectedId');
 
-  // If no model is explicitly selected, try the first installed one.
+  // If no model is explicitly selected, prefer web search capable models.
   String? modelId = selectedId;
   if (modelId == null) {
     final db = ModelDatabase();
     final installed = await db.getInstalledIds();
     Log.d('[runtimeProvider] No selection, installed=$installed');
     if (installed.isNotEmpty) {
-      modelId = installed.first;
+      // Prefer models with web search capability (≥8K context).
+      final webSearchModel = ModelRegistry.all.firstWhere(
+        (m) => installed.contains(m.id) && m.supports(ModelCapability.webSearch),
+        orElse: () => ModelRegistry.all.firstWhere(
+          (m) => installed.contains(m.id),
+        ),
+      );
+      modelId = webSearchModel.id;
     }
   }
 

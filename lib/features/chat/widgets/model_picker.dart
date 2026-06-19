@@ -137,6 +137,10 @@ Future<void> showModelPicker(BuildContext context, WidgetRef ref, String? curren
                                         InfoChip(icon: Icons.format_list_numbered, label: '${model.contextLength} ctx', compact: true),
                                         const SizedBox(width: 6),
                                         InfoChip(icon: Icons.chat_bubble_outline, label: templateName(model.chatTemplate), compact: true),
+                                        if (model.supports(ModelCapability.webSearch)) ...[
+                                          const SizedBox(width: 6),
+                                          InfoChip(icon: Icons.language, label: 'Search', compact: true),
+                                        ],
                                       ],
                                     ),
                                     if (downloading) Padding(padding: const EdgeInsets.only(top: 6), child: LinearProgressIndicator(value: progress, minHeight: 3, borderRadius: BorderRadius.circular(2))),

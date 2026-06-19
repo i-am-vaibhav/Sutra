@@ -18,9 +18,11 @@ import 'package:sutra/runtime/search/search_agent.dart';
 import 'package:sutra/runtime/search/search_result.dart';
 import 'package:sutra/runtime/search/web_search_provider.dart';
 import 'package:sutra/runtime/tts/tts_provider.dart';
+import 'model_selection.dart';
 import 'chat_provider.dart';
 import 'conversation_list_screen.dart';
 import 'file_picker_provider.dart';
+import 'package:sutra/runtime/pipeline/selected_model_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -147,12 +149,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _autoScroll = true;
     final selectedIds = ref.read(selectedFileIdsProvider);
     final searchEnabled = ref.read(webSearchProvider).enabled;
+    final isAutoMode = ref.read(selectedModelIdProvider) == null;
 
     ref.read(selectedFileIdsProvider.notifier).clear();
     controller.clear();
     _scrollToBottom();
 
-    if (searchEnabled) {
+    // Auto mode: if a web search model is installed, automatically
+    // route through web search without the user needing to toggle it.
+    final shouldSearch = searchEnabled || (isAutoMode && hasInstalledWebSearchModel(ref));
+
+    if (shouldSearch) {
       await _runWebSearch(text);
     } else {
       ref.read(chatProvider.notifier).sendMessage(text, selectedFileIds: selectedIds);
