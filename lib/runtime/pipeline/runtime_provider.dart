@@ -7,6 +7,14 @@ import 'package:sutra/runtime/provisioning/model_paths.dart';
 import 'package:sutra/runtime/pipeline/runtime_manager.dart';
 import 'package:sutra/runtime/pipeline/selected_model_provider.dart';
 
+/// In-memory cache of loaded LlamaCppRuntime engines keyed by model ID.
+///
+/// When the user switches between previously-loaded models, we reuse
+/// the cached engine instead of re-loading the GGUF from disk (which
+/// takes 1-5 seconds on mobile). The cache is evicted when the app
+/// is killed or when memory pressure is detected.
+final _runtimeCache = <String, LlamaCppRuntime>{};
+
 /// Provides the active RuntimeManager.
 ///
 /// Depends on [selectedModelIdProvider] — when the user picks a different
@@ -39,12 +47,24 @@ final runtimeProvider = FutureProvider<RuntimeManager>((ref) async {
   );
   Log.d('[runtimeProvider] Resolved model: ${model.name} (${model.localPath})');
 
+  // ── Cache hit: reuse previously loaded engine ──────────
+  final cached = _runtimeCache[modelId];
+  if (cached != null && cached.isReady) {
+    Log.d('[runtimeProvider] Cache hit for ${model.name} — skipping load');
+    final manager = RuntimeManager(cached);
+    ref.onDispose(() {
+      Log.d('[runtimeProvider] Cache keep-alive for ${model.name}');
+    });
+    return manager;
+  }
+
   // Create the runtime and register disposal BEFORE any async work
   // so that ref.onDispose is always called while ref is still valid.
   final runtime = LlamaCppRuntime();
   ref.onDispose(() {
-    Log.d('[runtimeProvider] Disposing runtime for model: ${model.name}');
-    runtime.dispose();
+    // Don't dispose the engine — keep it in cache for fast re-use.
+    // The engine will be evicted only on process death.
+    Log.d('[runtimeProvider] Release (cache) for ${model.name}');
   });
 
   try {
@@ -60,8 +80,14 @@ final runtimeProvider = FutureProvider<RuntimeManager>((ref) async {
     // Check if the provider was disposed while we were loading files.
     if (!ref.mounted) return RuntimeManager(runtime);
 
+    final sw = Stopwatch()..start();
     await runtime.initialize(file.path);
-    Log.d('[runtimeProvider] Runtime ready: ${runtime.isReady}');
+    sw.stop();
+    Log.d('[runtimeProvider] Model loaded in ${sw.elapsedMilliseconds}ms, ready=${runtime.isReady}');
+
+    if (runtime.isReady) {
+      _runtimeCache[modelId] = runtime;
+    }
 
     return RuntimeManager(runtime);
   } catch (e, st) {

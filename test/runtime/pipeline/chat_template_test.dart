@@ -39,17 +39,6 @@ void main() {
     });
   });
 
-  group('TinyLlamaChatTemplate', () {
-    test('formats with system/user/assistant tags', () {
-      const t = TinyLlamaChatTemplate();
-      final result = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi');
-      expect(result, contains('<|system|>'));
-      expect(result, contains('</s>'));
-      expect(result, contains('<|user|>'));
-      expect(result, contains('<|assistant|>'));
-    });
-  });
-
   group('Phi3ChatTemplate', () {
     test('formats with end tokens', () {
       const t = Phi3ChatTemplate();

@@ -4,6 +4,7 @@ import 'package:sutra/core/logging/log.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sutra/runtime/tts/tts_service.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 const _enabledKey = 'read_aloud_enabled';
 const _voiceKey = 'read_aloud_voice';
@@ -55,10 +56,12 @@ class TtsNotifier extends StateNotifier<TtsState> {
 
   // ── Persistent state ────────────────────────────────────
 
+  SharedPreferencesWithCache? _prefs;
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final enabled = prefs.getBool(_enabledKey) ?? false;
-    final voiceRaw = prefs.getString(_voiceKey);
+    _prefs = await prefsCache();
+    final enabled = _prefs!.getBool(_enabledKey) ?? false;
+    final voiceRaw = _prefs!.getString(_voiceKey);
 
     String voiceName = '';
     String voiceLocale = '';
@@ -80,10 +83,10 @@ class TtsNotifier extends StateNotifier<TtsState> {
   }
 
   Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_enabledKey, state.isEnabled);
+    final p = _prefs ?? await prefsCache();
+    await p.setBool(_enabledKey, state.isEnabled);
     if (state.selectedVoiceName.isNotEmpty) {
-      await prefs.setString(_voiceKey,
+      await p.setString(_voiceKey,
           '${state.selectedVoiceName}|${state.selectedVoiceLocale}');
     }
   }

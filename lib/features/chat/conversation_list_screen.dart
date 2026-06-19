@@ -23,6 +23,9 @@ class _ConversationListScreenState
   bool _selectMode = false;
   final Set<String> _selectedIds = {};
 
+  /// Cached date formatter — avoid re-creating per itemBuilder call.
+  static final _dateFmt = DateFormat.yMd().add_jm();
+
   @override
   void initState() {
     super.initState();
@@ -192,7 +195,7 @@ class _ConversationListScreenState
       itemBuilder: (context, index) {
         final session = _sessions[index];
         final dateStr =
-            DateFormat.yMd().add_jm().format(session.updatedAt);
+            _dateFmt.format(session.updatedAt);
         final isSelected = _selectedIds.contains(session.id);
 
         if (_selectMode) {
@@ -306,7 +309,28 @@ class _ConversationListScreenState
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(dateStr),
+        subtitle: Row(
+          children: [
+            Text(dateStr),
+            if (session.messageCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${session.messageCount} msg${session.messageCount != 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
         trailing: PopupMenuButton<String>(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),

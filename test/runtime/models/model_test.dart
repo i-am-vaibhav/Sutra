@@ -54,8 +54,8 @@ void main() {
       expect(ModelRegistry.all, isNotEmpty);
     });
 
-    test('all list contains 8 models', () {
-      expect(ModelRegistry.all.length, 8);
+    test('all list contains expected number of models', () {
+      expect(ModelRegistry.all.length, 10);
     });
 
     test('each model has a unique id', () {
@@ -81,24 +81,24 @@ void main() {
       }
     });
 
-    test('micro model is tiny size', () {
-      expect(ModelRegistry.micro.size, ModelSize.tiny);
+    test('qwen3_0_6b is tiny size', () {
+      expect(ModelRegistry.qwen3_0_6b.size, ModelSize.tiny);
     });
 
-    test('tiny model is small size', () {
-      expect(ModelRegistry.tiny.size, ModelSize.small);
+    test('qwen3_1_7b is small size', () {
+      expect(ModelRegistry.qwen3_1_7b.size, ModelSize.small);
     });
 
-    test('llama32_1b is tiny size', () {
-      expect(ModelRegistry.llama32_1b.size, ModelSize.tiny);
+    test('llama32_1b is small size', () {
+      expect(ModelRegistry.llama32_1b.size, ModelSize.small);
     });
 
-    test('phi3Mini is medium size', () {
-      expect(ModelRegistry.phi3Mini.size, ModelSize.medium);
+    test('phi4Mini is medium size', () {
+      expect(ModelRegistry.phi4Mini.size, ModelSize.medium);
     });
 
-    test('medium model is medium size', () {
-      expect(ModelRegistry.medium.size, ModelSize.medium);
+    test('qwen3_4b is medium size', () {
+      expect(ModelRegistry.qwen3_4b.size, ModelSize.medium);
     });
 
     test('all models have chatTemplate assigned', () {
@@ -116,50 +116,29 @@ void main() {
   });
 
   group('ModelPolicy', () {
-    test('low tier returns micro and tiny models', () {
+    test('returns exactly 2 models for any tier', () {
+      for (final tier in DeviceTier.values) {
+        final models = ModelPolicy.required(tier);
+        expect(models.length, 2, reason: 'Expected 2 models for $tier');
+      }
+    });
+
+    test('includes tiny chat model (qwen3-0.6b)', () {
       final models = ModelPolicy.required(DeviceTier.low);
-      expect(models.length, 2);
-      expect(models.map((m) => m.id), containsAll(['qwen2.5-0.5b', 'tinyllama-1.1b']));
-    });
-
-    test('mid tier returns 4 models', () {
-      final models = ModelPolicy.required(DeviceTier.mid);
-      expect(models.length, 4);
-    });
-
-    test('mid tier includes tiny, small, gemma2b, llama32_1b', () {
-      final models = ModelPolicy.required(DeviceTier.mid);
       final ids = models.map((m) => m.id).toSet();
-      expect(ids, containsAll([
-        'tinyllama-1.1b',
-        'qwen2.5-1.5b',
-        'gemma-2-2b-it',
-        'llama-3.2-1b-instruct',
-      ]));
+      expect(ids, contains('qwen3-0.6b'));
     });
 
-    test('high tier returns all 8 models', () {
-      final models = ModelPolicy.required(DeviceTier.high);
-      expect(models.length, 8);
-    });
-
-    test('high tier includes all registry models', () {
-      final models = ModelPolicy.required(DeviceTier.high);
+    test('includes web search model (gemma-3-1b-it)', () {
+      final models = ModelPolicy.required(DeviceTier.low);
       final ids = models.map((m) => m.id).toSet();
-      final registryIds = ModelRegistry.all.map((m) => m.id).toSet();
-      expect(ids, equals(registryIds));
+      expect(ids, contains('gemma-3-1b-it'));
     });
 
-    test('low tier has fewer models than mid tier', () {
-      final low = ModelPolicy.required(DeviceTier.low);
-      final mid = ModelPolicy.required(DeviceTier.mid);
-      expect(low.length, lessThan(mid.length));
-    });
-
-    test('mid tier has fewer models than high tier', () {
-      final mid = ModelPolicy.required(DeviceTier.mid);
-      final high = ModelPolicy.required(DeviceTier.high);
-      expect(mid.length, lessThan(high.length));
+    test('web search model has ≥8K context', () {
+      final models = ModelPolicy.required(DeviceTier.low);
+      final searchModel = models.firstWhere((m) => m.id == 'gemma-3-1b-it');
+      expect(searchModel.contextLength, greaterThanOrEqualTo(8192));
     });
   });
 }

@@ -1,23 +1,25 @@
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 const _wifiOnlyKey = 'wifi_only_downloads';
 
-/// Manages the WiFi-only download preference with SharedPreferences persistence.
 class WifiOnlyNotifier extends StateNotifier<bool> {
+  SharedPreferencesWithCache? _prefs;
+
   WifiOnlyNotifier() : super(true) {
     _load();
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    state = prefs.getBool(_wifiOnlyKey) ?? true;
+    _prefs = await prefsCache();
+    state = _prefs!.getBool(_wifiOnlyKey) ?? true;
   }
 
   Future<void> toggle(bool value) async {
     state = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_wifiOnlyKey, value);
+    final p = _prefs ?? await prefsCache();
+    await p.setBool(_wifiOnlyKey, value);
   }
 }
 

@@ -50,13 +50,6 @@ void main() {
   });
 
   group('Templates with history', () {
-    test('TinyLlama with history', () {
-      const t = TinyLlamaChatTemplate();
-      final r = t.formatPrompt(systemPrompt: 'sys', history: history, userMessage: 'Test');
-      expect(r, contains('<|user|>'));
-      expect(r, contains('<|assistant|>'));
-    });
-
     test('Phi3 with history', () {
       const t = Phi3ChatTemplate();
       final r = t.formatPrompt(systemPrompt: 'sys', history: history, userMessage: 'Test');
@@ -84,12 +77,6 @@ void main() {
   });
 
   group('Templates without memory', () {
-    test('TinyLlama without memoryText', () {
-      const t = TinyLlamaChatTemplate();
-      final r = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi');
-      expect(r, contains('sys'));
-    });
-
     test('Phi3 without memoryText', () {
       const t = Phi3ChatTemplate();
       final r = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi');

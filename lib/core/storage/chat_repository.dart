@@ -12,6 +12,7 @@ class ChatSession {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool archived;
+  final int messageCount;
 
   const ChatSession({
     required this.id,
@@ -19,6 +20,7 @@ class ChatSession {
     required this.createdAt,
     required this.updatedAt,
     this.archived = false,
+    this.messageCount = 0,
   });
 
   ChatSession copyWith({String? title, bool? archived}) {
@@ -28,6 +30,7 @@ class ChatSession {
       createdAt: createdAt,
       updatedAt: updatedAt,
       archived: archived ?? this.archived,
+      messageCount: messageCount,
     );
   }
 }
@@ -62,8 +65,10 @@ class ChatRepository {
   Future<List<ChatSession>> getSessions({bool includeArchived = false}) async {
     final db = await ChatDB.instance();
     final where = includeArchived ? 'archived = 1' : 'archived = 0';
-    final rows = await db.query('sessions',
-        where: where, orderBy: 'updatedAt DESC');
+    final rows = await db.rawQuery(
+      "SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.sessionId = s.id) AS messageCount "
+      "FROM sessions s WHERE $where ORDER BY updatedAt DESC",
+    );
 
     return rows
         .map((r) => ChatSession(
@@ -74,6 +79,7 @@ class ChatRepository {
               updatedAt: DateTime.fromMillisecondsSinceEpoch(
                   r['updatedAt'] as int),
               archived: (r['archived'] as int) == 1,
+              messageCount: r['messageCount'] as int,
             ))
         .toList();
   }
@@ -169,6 +175,7 @@ class ChatRepository {
     }
   }
 
+  /// Fetch all messages for a session (ordered oldest → newest).
   Future<List<Map<String, dynamic>>> getMessages(String sessionId) async {
     final db = await ChatDB.instance();
     return await db.query(
@@ -177,6 +184,51 @@ class ChatRepository {
       whereArgs: [sessionId],
       orderBy: 'createdAt ASC',
     );
+  }
+
+  /// Fetch the newest [limit] messages for a session.
+  /// Returns them ordered oldest → newest (like [getMessages]).
+  Future<List<Map<String, dynamic>>> getMessagesPaginated(
+    String sessionId, {
+    int limit = 50,
+  }) async {
+    final db = await ChatDB.instance();
+    final rows = await db.query(
+      'messages',
+      where: 'sessionId = ?',
+      whereArgs: [sessionId],
+      orderBy: 'createdAt DESC',
+      limit: limit,
+    );
+    return rows.reversed.toList();
+  }
+
+  /// Count total messages in a session.
+  Future<int> countMessages(String sessionId) async {
+    final db = await ChatDB.instance();
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM messages WHERE sessionId = ?',
+      [sessionId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Fetch messages older than [beforeTimestamp] for a session.
+  /// Returns them ordered oldest → newest, up to [limit] messages.
+  Future<List<Map<String, dynamic>>> getMessagesBefore(
+    String sessionId, {
+    required int beforeTimestamp,
+    int limit = 50,
+  }) async {
+    final db = await ChatDB.instance();
+    final rows = await db.query(
+      'messages',
+      where: 'sessionId = ? AND createdAt < ?',
+      whereArgs: [sessionId, beforeTimestamp],
+      orderBy: 'createdAt DESC',
+      limit: limit,
+    );
+    return rows.reversed.toList();
   }
 
   Future<void> deleteMessage(String messageId) async {

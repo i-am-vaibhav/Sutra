@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:sutra/core/logging/log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sutra/runtime/context/context_settings.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 const _settingsKey = 'context_settings';
 
@@ -13,9 +14,11 @@ class ContextSettingsNotifier extends StateNotifier<ContextSettings> {
     _load();
   }
 
+  SharedPreferencesWithCache? _prefs;
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_settingsKey);
+    _prefs = await prefsCache();
+    final raw = _prefs!.getString(_settingsKey);
     if (raw != null) {
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -28,14 +31,25 @@ class ContextSettingsNotifier extends StateNotifier<ContextSettings> {
   }
 
   Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_settingsKey, jsonEncode(_toJson(state)));
+    final p = _prefs ?? await prefsCache();
+    await p.setString(_settingsKey, jsonEncode(_toJson(state)));
   }
 
   // ── Toggle helpers ──────────────────────────────────────
 
   void toggleUserProfile(bool value) {
-    state = state.copyWith(userProfileEnabled: value);
+    if (!value) {
+      // Clear profile fields when disabling.
+      state = state.copyWith(
+        userProfileEnabled: false,
+        userName: '',
+        userProfession: '',
+        userInterests: '',
+        userExtraInfo: '',
+      );
+    } else {
+      state = state.copyWith(userProfileEnabled: value);
+    }
     _save();
   }
 

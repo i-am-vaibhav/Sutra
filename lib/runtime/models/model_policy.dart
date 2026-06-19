@@ -3,44 +3,17 @@ import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/models/model_registry.dart';
 
 class ModelPolicy {
-  /// Returns the models that should be provisioned for a given [tier].
+  /// Returns the models that should be auto-provisioned on first launch.
   ///
-  /// Models are ordered smallest-first so the most important ones
-  /// are downloaded first.  Tier boundaries account for real device
-  /// RAM minus OS overhead:
+  /// Only two models are downloaded by default:
+  /// - One tiny model for basic chat (smallest available)
+  /// - One web search capable model (smallest with ≥8K context)
   ///
-  /// | Tier  | Typical RAM | Models                               |
-  /// |-------|-------------|--------------------------------------|
-  /// | low   | 2-4 GB      | micro + tiny (~1.1 GB)               |
-  /// | mid   | 4-8 GB      | tiny + small + gemma2b + llama32_1b  |
-  /// | high  | 8 GB+       | all eight (~10.3 GB)                 |
+  /// Other models are available for the user to install manually.
   static List<ModelDefinition> required(DeviceTier tier) {
-    switch (tier) {
-      case DeviceTier.low:
-        return [
-          ModelRegistry.micro,
-          ModelRegistry.tiny,
-        ];
-
-      case DeviceTier.mid:
-        return [
-          ModelRegistry.tiny,
-          ModelRegistry.small,
-          ModelRegistry.gemma2b,
-          ModelRegistry.llama32_1b,
-        ];
-
-      case DeviceTier.high:
-        return [
-          ModelRegistry.micro,
-          ModelRegistry.tiny,
-          ModelRegistry.small,
-          ModelRegistry.gemma2b,
-          ModelRegistry.llama32_1b,
-          ModelRegistry.medium,
-          ModelRegistry.llama32_3b,
-          ModelRegistry.phi3Mini,
-        ];
-    }
+    return [
+      ModelRegistry.qwen3_0_6b,     // Tiny chat model (~0.6B)
+      ModelRegistry.gemma3_1b,      // Web search model (~1B, 8K context)
+    ];
   }
 }

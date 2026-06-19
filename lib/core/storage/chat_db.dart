@@ -17,7 +17,7 @@ class ChatDB {
 
     _db = await openDatabase(
       path,
-      version: 4,
+      version: 1,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sessions (
@@ -30,21 +30,15 @@ class ChatDB {
         ''');
 
         await db.execute('''
-          CREATE TABLE memories (
-            id TEXT PRIMARY KEY,
-            content TEXT NOT NULL,
-            importance REAL NOT NULL DEFAULT 0.5,
-            createdAt INTEGER NOT NULL
-          )
-        ''');
-
-        await db.execute('''
           CREATE TABLE messages (
             id TEXT PRIMARY KEY,
             sessionId TEXT NOT NULL,
             text TEXT NOT NULL,
             role TEXT NOT NULL,
             createdAt INTEGER NOT NULL,
+            quotedText TEXT,
+            citations TEXT,
+            isWebSearch INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE CASCADE
           )
         ''');
@@ -52,51 +46,15 @@ class ChatDB {
         await db.execute(
           'CREATE INDEX idx_messages_session ON messages(sessionId, createdAt)',
         );
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          // Migrate: create sessions table and add sessionId to existing messages.
-          await db.execute('''
-            CREATE TABLE sessions (
-              id TEXT PRIMARY KEY,
-              title TEXT NOT NULL,
-              createdAt INTEGER NOT NULL,
-              updatedAt INTEGER NOT NULL
-            )
-          ''');
 
-          // Check if sessionId column already exists.
-          final columns = await db.rawQuery('PRAGMA table_info(messages)');
-          final hasSessionId =
-              columns.any((c) => c['name'] == 'sessionId');
-
-          if (!hasSessionId) {
-            await db.execute(
-              'ALTER TABLE messages ADD COLUMN sessionId TEXT NOT NULL DEFAULT \'default\'',
-            );
-          }
-
-          await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(sessionId, createdAt)',
-          );
-        }
-
-        if (oldVersion < 3) {
-          await db.execute(
-            'ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0',
-          );
-        }
-
-        if (oldVersion < 4) {
-          await db.execute('''
-            CREATE TABLE memories (
-              id TEXT PRIMARY KEY,
-              content TEXT NOT NULL,
-              importance REAL NOT NULL DEFAULT 0.5,
-              createdAt INTEGER NOT NULL
-            )
-          ''');
-        }
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            importance REAL NOT NULL DEFAULT 0.5,
+            createdAt INTEGER NOT NULL
+          )
+        ''');
       },
     );
 

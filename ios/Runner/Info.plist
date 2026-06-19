@@ -71,5 +71,9 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.bbflight.background_downloader.Downloader</string>
+	</array>
 </dict>
 </plist>

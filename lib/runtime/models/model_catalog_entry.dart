@@ -12,6 +12,7 @@ class ModelCatalogEntry {
   final int contextLength;
   final String? sizeBytes;
   final String chatTemplateHint;
+  final List<String> capabilities;
 
   const ModelCatalogEntry({
     required this.id,
@@ -23,6 +24,7 @@ class ModelCatalogEntry {
     this.contextLength = 4096,
     this.sizeBytes,
     this.chatTemplateHint = 'generic',
+    this.capabilities = const [],
   });
 
   factory ModelCatalogEntry.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class ModelCatalogEntry {
       contextLength: json['contextLength'] as int? ?? 4096,
       sizeBytes: json['sizeBytes'] as String?,
       chatTemplateHint: json['chatTemplate'] as String? ?? 'generic',
+      capabilities: (json['capabilities'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 
@@ -49,6 +52,7 @@ class ModelCatalogEntry {
     'contextLength': contextLength,
     'sizeBytes': sizeBytes,
     'chatTemplate': chatTemplateHint,
+    'capabilities': capabilities,
   };
 }
 

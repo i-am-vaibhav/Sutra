@@ -220,8 +220,8 @@ void main() {
       expect(ModelCatalog.fallback.categories, isNotEmpty);
     });
 
-    test('fallback catalog has at least 4 categories', () {
-      expect(ModelCatalog.fallback.categories.length, greaterThanOrEqualTo(4));
+    test('fallback catalog has at least 3 categories', () {
+      expect(ModelCatalog.fallback.categories.length, greaterThanOrEqualTo(3));
     });
 
     test('fallback catalog has entries in each category', () {

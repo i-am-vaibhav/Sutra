@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 const _selectedModelKey = 'selected_model_id';
 
@@ -19,26 +20,28 @@ class SelectedModelNotifier extends StateNotifier<String?> {
   bool _userChoseAuto = false;
   bool get userChoseAuto => _userChoseAuto;
 
+  SharedPreferencesWithCache? _prefs;
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    state = prefs.getString(_selectedModelKey);
-    _userChoseAuto = prefs.getBool(_autoChosenKey) ?? false;
+    _prefs = await prefsCache();
+    state = _prefs!.getString(_selectedModelKey);
+    _userChoseAuto = _prefs!.getBool(_autoChosenKey) ?? false;
   }
 
   bool get isAuto => state == null || state == autoModelId;
 
   Future<void> select(String? modelId) async {
-    final prefs = await SharedPreferences.getInstance();
+    final p = _prefs ?? await prefsCache();
     if (modelId == null || modelId == autoModelId) {
       _userChoseAuto = true;
       state = null;
-      await prefs.setString(_selectedModelKey, autoModelId);
-      await prefs.setBool(_autoChosenKey, true);
+      await p.setString(_selectedModelKey, autoModelId);
+      await p.setBool(_autoChosenKey, true);
     } else {
       _userChoseAuto = false;
       state = modelId;
-      await prefs.setString(_selectedModelKey, modelId);
-      await prefs.setBool(_autoChosenKey, false);
+      await p.setString(_selectedModelKey, modelId);
+      await p.setBool(_autoChosenKey, false);
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sutra/features/chat/chat_message.dart';
 import 'package:sutra/runtime/pipeline/chat_template.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 const _systemPromptKey = 'system_prompt';
 
@@ -15,15 +16,18 @@ class SystemPromptNotifier extends StateNotifier<String> {
     _load();
   }
 
+  SharedPreferencesWithCache? _prefs;
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    state = prefs.getString(_systemPromptKey) ?? state;
+    _prefs = await prefsCache();
+    final stored = _prefs!.getString(_systemPromptKey);
+    if (stored != null) state = stored;
   }
 
   Future<void> update(String value) async {
     state = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_systemPromptKey, value);
+    final p = _prefs ?? await prefsCache();
+    await p.setString(_systemPromptKey, value);
   }
 }
 

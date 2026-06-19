@@ -1,10 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 import 'package:sutra/runtime/pipeline/context_builder.dart';
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    resetPrefsCache();
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  tearDown(() {
+    resetPrefsCache();
   });
 
   group('SystemPromptNotifier', () {
@@ -15,9 +23,10 @@ void main() {
     });
 
     test('loads saved prompt from SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({
+      final store = InMemorySharedPreferencesAsync.withData({
         'system_prompt': 'Custom prompt',
       });
+      SharedPreferencesAsyncPlatform.instance = store;
       final notifier = SystemPromptNotifier();
       await Future.delayed(Duration.zero);
       expect(notifier.state, 'Custom prompt');
@@ -28,7 +37,7 @@ void main() {
       await Future.delayed(Duration.zero);
       await notifier.update('New prompt');
       expect(notifier.state, 'New prompt');
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await prefsCache();
       expect(prefs.getString('system_prompt'), 'New prompt');
     });
   });

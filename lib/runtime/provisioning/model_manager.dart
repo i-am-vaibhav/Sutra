@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:sutra/core/logging/log.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/provisioning/model_database.dart';
 import 'package:sutra/runtime/provisioning/model_downloader.dart';
 import 'package:sutra/runtime/provisioning/model_paths.dart';
 import 'package:sutra/runtime/provisioning/model_queue.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 /// Snapshot of the model manager's current state for UI consumers.
 class ModelManagerState {
@@ -313,13 +313,13 @@ class ModelManager {
   Future<ModelRecord?> getModelRecord(String modelId) => _db.get(modelId);
 
   Future<bool> isWifiOnly() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('wifi_only_downloads') ?? true;
+    final p = await prefsCache();
+    return p.getBool('wifi_only_downloads') ?? true;
   }
 
   Future<void> setWifiOnly(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('wifi_only_downloads', value);
+    final p = await prefsCache();
+    await p.setBool('wifi_only_downloads', value);
   }
 
   // ── Queue Processing ──────────────────────────────────
@@ -406,15 +406,9 @@ class ModelManager {
               await _db.upsert(r.copyWith(retryAttempts: r.retryAttempts + 1));
             }
           } else {
-            final r = await _db.get(modelId);
-            if (r != null) {
-              await _db.upsert(r.copyWith(
-                progress: event.progress,
-                downloadedBytes: event.downloadedBytes,
-              ));
-            }
+            // Use lightweight progress sync — avoids full DB read on every tick.
+            _syncProgressOnly(modelId, event.progress, event.downloadedBytes);
           }
-          await _syncStateFromDb();
         },
         database: _db,
       );
@@ -435,6 +429,20 @@ class ModelManager {
 
   // ── State Sync ────────────────────────────────────────
 
+  /// Lightweight progress-only update — avoids a full DB read.
+  /// Called on every download progress tick instead of _syncStateFromDb.
+  void _syncProgressOnly(String modelId, double progress, int downloadedBytes) {
+    final newProgress = Map<String, double>.from(_state.progress);
+    newProgress[modelId] = progress;
+    _state = _state.copyWith(
+      progress: newProgress,
+      activeDownloadId: _queue.next,
+    );
+    if (!_controller.isClosed) _controller.add(_state);
+  }
+
+  /// Full state sync from the database.
+  /// Only called on state transitions (download complete, failed, etc.).
   Future<void> _syncStateFromDb() async {
     final records = await _db.getAll();
     final modelStates = <String, ModelState>{};

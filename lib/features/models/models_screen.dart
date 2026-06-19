@@ -1,12 +1,13 @@
 import 'package:sutra/core/logging/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sutra/features/models/widgets/catalog_tiles.dart';
+import 'package:sutra/features/models/widgets/storage_summary.dart';
 
 import '../../runtime/models/model_catalog.dart';
 import '../../runtime/models/model_catalog_entry.dart';
 import '../../runtime/models/model_catalog_service.dart';
 import '../../runtime/models/model_catalog_service_provider.dart';
-import '../../runtime/models/model_definition.dart';
 import '../../runtime/models/model_registry.dart';
 import '../../runtime/provisioning/model_database.dart';
 import '../../runtime/provisioning/model_manager.dart';
@@ -25,6 +26,56 @@ const _categoryIcons = <String, IconData>{
   'general': Icons.smart_toy_outlined,
 };
 
+/// Icons for search suggestion chips.
+const _taskIcons = <String, IconData>{
+  'translate': Icons.translate,
+  'translation': Icons.translate,
+  'summarize': Icons.summarize,
+  'summary': Icons.summarize,
+  'analysis': Icons.analytics_outlined,
+  'code': Icons.code,
+  'programming': Icons.code,
+  'chat': Icons.chat_bubble_outline,
+  'conversation': Icons.chat_bubble_outline,
+  'qa': Icons.question_answer_outlined,
+  'question': Icons.question_answer_outlined,
+  'knowledge': Icons.psychology_outlined,
+  'sentiment': Icons.sentiment_satisfied_alt_outlined,
+  'entity': Icons.label_outline,
+  'intent': Icons.ads_click,
+  'fast': Icons.speed,
+  'quick': Icons.speed,
+  'small': Icons.speed,
+  'reasoning': Icons.psychology_outlined,
+  'creative': Icons.brush_outlined,
+  'writing': Icons.edit_outlined,
+};
+
+/// Task keywords that map user intents to relevant model categories/entries.
+const _taskKeywords = <String, List<String>>{
+  'translate': ['translation', 'multilingual', 'language'],
+  'translation': ['translation', 'multilingual', 'language'],
+  'summarize': ['summarization', 'summary', 'analysis'],
+  'summary': ['summarization', 'summary', 'analysis'],
+  'analysis': ['summarization', 'analysis', 'extract'],
+  'code': ['coding', 'code', 'programming'],
+  'programming': ['coding', 'code', 'programming'],
+  'chat': ['chat', 'conversation', 'dialogue'],
+  'conversation': ['chat', 'conversation', 'dialogue'],
+  'qa': ['qa', 'question', 'knowledge', 'factual'],
+  'question': ['qa', 'question', 'knowledge', 'factual'],
+  'knowledge': ['qa', 'knowledge', 'factual'],
+  'sentiment': ['fast', 'chat', 'nlu', 'sentiment'],
+  'entity': ['fast', 'chat', 'nlu', 'entity'],
+  'intent': ['fast', 'chat', 'nlu', 'intent'],
+  'fast': ['fast', 'light'],
+  'quick': ['fast', 'light'],
+  'small': ['fast', 'light'],
+  'reasoning': ['chat', 'qa', 'analysis'],
+  'creative': ['chat', 'summarization'],
+  'writing': ['chat', 'summarization'],
+};
+
 class ModelsScreen extends ConsumerStatefulWidget {
   const ModelsScreen({super.key});
 
@@ -38,6 +89,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
   ModelCatalog? _catalog;
   bool _loadingCatalog = true;
   bool _loadingCatalogInProgress = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  bool _showSearchResults = false;
 
   @override
   void initState() {
@@ -50,7 +104,33 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
   @override
   void dispose() {
     _tabController?.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  List<ModelCatalogEntry> _searchCatalog(String query) {
+    if (_catalog == null || query.isEmpty) return [];
+    final q = query.toLowerCase();
+
+    final expandedTerms = <String>{q};
+    _taskKeywords.forEach((key, synonyms) {
+      if (q.contains(key) || synonyms.any((s) => q.contains(s))) {
+        expandedTerms.add(key);
+        expandedTerms.addAll(synonyms);
+      }
+    });
+
+    final seen = <String>{};
+    final results = <ModelCatalogEntry>[];
+    for (final entry in _catalog!.allEntries) {
+      if (seen.contains(entry.id)) continue;
+      final haystack = '${entry.name} ${entry.description} ${entry.category}'.toLowerCase();
+      if (expandedTerms.any((term) => haystack.contains(term))) {
+        seen.add(entry.id);
+        results.add(entry);
+      }
+    }
+    return results;
   }
 
   Future<void> _loadCatalog() async {
@@ -62,7 +142,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       if (!mounted) return;
       _tabController?.dispose();
       _tabController = TabController(
-        length: catalog.categories.length + 2, // Local + Queue + categories
+        length: catalog.categories.length + 2,
         vsync: this,
       );
       setState(() {
@@ -86,6 +166,81 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     }
   }
 
+  Widget _buildSearchResults({
+    required String? selectedId,
+    required ModelManager manager,
+    required ModelCatalogService catalogService,
+  }) {
+    final mgrState = manager.state;
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Try a task', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              'translate', 'summarize', 'code', 'chat', 'qa',
+              'sentiment', 'entity', 'reasoning', 'fast', 'writing',
+            ].map((task) => ActionChip(
+              avatar: Icon(_taskIcons[task] ?? Icons.smart_toy_outlined, size: 16),
+              label: Text(task[0].toUpperCase() + task.substring(1)),
+              onPressed: () {
+                _searchController.text = task;
+                setState(() {
+                  _searchQuery = task;
+                  _showSearchResults = true;
+                });
+              },
+            )).toList(),
+          ),
+        ],
+      );
+    }
+
+    final results = _searchCatalog(query);
+    if (results.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 48, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 16),
+            Text('No models match "$query"', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text('Try a different search term',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+          ],
+        ),
+      );
+    }
+
+    final categoryNameToIcon = <String, IconData>{};
+    for (final cat in _catalog!.categories) {
+      categoryNameToIcon[cat.name] = _categoryIcons[cat.icon] ?? Icons.smart_toy_outlined;
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final entry = results[index];
+        return CatalogModelTile(
+          entry: entry,
+          mgrState: mgrState,
+          selectedId: selectedId,
+          manager: manager,
+          catalogService: catalogService,
+          showCategory: true,
+          categoryIcon: categoryNameToIcon[entry.category],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedId = ref.watch(selectedModelIdProvider);
@@ -94,8 +249,42 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Models'),
-        bottom: _loadingCatalog
+        title: _showSearchResults
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search models by task... (e.g. translate, summarize, code)',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
+                ),
+                onChanged: (value) {
+                  setState(() { _searchQuery = value; });
+                },
+              )
+            : const Text('Models'),
+        actions: [
+          if (_showSearchResults)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _searchController.clear();
+                  _searchQuery = '';
+                  _showSearchResults = false;
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: 'Search models',
+              onPressed: () {
+                setState(() { _showSearchResults = true; });
+              },
+            ),
+        ],
+        bottom: _loadingCatalog || _showSearchResults
             ? null
             : TabBar(
                 isScrollable: true,
@@ -111,13 +300,14 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       ),
       body: _loadingCatalog
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<ModelManagerState>(
+          : _showSearchResults
+              ? _buildSearchResults(selectedId: selectedId, manager: manager, catalogService: catalogService)
+              : StreamBuilder<ModelManagerState>(
               stream: manager.stream,
               initialData: manager.state,
               builder: (context, snapshot) {
                 final mgrState = snapshot.data ?? const ModelManagerState();
 
-                // Show SnackBar on storage warning.
                 if (mgrState.storageWarning != null) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
@@ -139,7 +329,6 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                   });
                 }
 
-                // Show SnackBar on download completion.
                 if (mgrState.downloadCompleteMessage != null) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
@@ -172,13 +361,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                         ref.read(selectedModelIdProvider.notifier).select(id);
                       },
                       manager: manager,
-                      catalogService: catalogService,
                     ),
-                    _QueueTab(
-                      mgrState: mgrState,
-                      manager: manager,
-                      catalogService: catalogService,
-                    ),
+                    _QueueTab(mgrState: mgrState, manager: manager, catalogService: catalogService),
                     ...?_catalog?.categories.map((category) =>
                         _CatalogCategoryTab(
                           category: category,
@@ -202,36 +386,30 @@ class _LocalModelsTab extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<String> onModelSelected;
   final ModelManager manager;
-  final ModelCatalogService catalogService;
 
   const _LocalModelsTab({
     required this.mgrState,
     required this.selectedId,
     required this.onModelSelected,
     required this.manager,
-    required this.catalogService,
   });
 
   @override
   Widget build(BuildContext context) {
     final allModels = ModelRegistry.all;
-    final installed =
-        allModels.where((m) => mgrState.installedIds.contains(m.id)).toList();
+    final installed = allModels.where((m) => mgrState.installedIds.contains(m.id)).toList();
 
     if (installed.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.download_done, size: 48,
-                color: Theme.of(context).colorScheme.outline),
+            Icon(Icons.download_done, size: 48, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
-            Text('No models installed yet',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text('No models installed yet', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text('Browse categories to download models',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline)),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
           ],
         ),
       );
@@ -239,14 +417,14 @@ class _LocalModelsTab extends StatelessWidget {
 
     return Column(
       children: [
-        _StorageSummary(totalBytes: mgrState.totalDiskBytes, modelCount: installed.length, freeDiskBytes: mgrState.freeDiskBytes),
+        StorageSummary(totalBytes: mgrState.totalDiskBytes, modelCount: installed.length, freeDiskBytes: mgrState.freeDiskBytes),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: installed.length,
             itemBuilder: (context, index) {
               final model = installed[index];
-              return _ModelTile(
+              return ModelTile(
                 model: model,
                 mgrState: mgrState,
                 isSelected: selectedId == model.id,
@@ -268,18 +446,13 @@ class _QueueTab extends StatelessWidget {
   final ModelManager manager;
   final ModelCatalogService catalogService;
 
-  const _QueueTab({
-    required this.mgrState,
-    required this.manager,
-    required this.catalogService,
-  });
+  const _QueueTab({required this.mgrState, required this.manager, required this.catalogService});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Collect all models that are downloading.
     final downloadingModels = <MapEntry<String, ModelState>>[];
     mgrState.modelStates.forEach((id, state) {
       if (state == ModelState.downloading || state == ModelState.paused) {
@@ -292,15 +465,12 @@ class _QueueTab extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.download_done, size: 48,
-                color: colorScheme.outline),
+            Icon(Icons.download_done, size: 48, color: colorScheme.outline),
             const SizedBox(height: 16),
-            Text('No downloads in queue',
-                style: theme.textTheme.titleMedium),
+            Text('No downloads in queue', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text('Downloaded models will appear here',
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline)),
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
           ],
         ),
       );
@@ -315,13 +485,8 @@ class _QueueTab extends StatelessWidget {
         final progress = mgrState.progress[modelId] ?? 0.0;
         final retryAttempt = mgrState.retryAttempts[modelId];
 
-        // Find model name from registry or catalog.
-        final regModel = ModelRegistry.all
-            .where((m) => m.id == modelId)
-            .firstOrNull;
-        final catEntry = catalogService.catalog.allEntries
-            .where((e) => e.id == modelId)
-            .firstOrNull;
+        final regModel = ModelRegistry.all.where((m) => m.id == modelId).firstOrNull;
+        final catEntry = catalogService.catalog.allEntries.where((e) => e.id == modelId).firstOrNull;
         final name = regModel?.name ?? catEntry?.name ?? modelId;
 
         return Card(
@@ -333,20 +498,13 @@ class _QueueTab extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    SizedBox(
-                      width: 28, height: 28,
-                      child: CircularProgressIndicator(
-                        value: progress > 0 ? progress : null,
-                        strokeWidth: 2,
-                      ),
-                    ),
+                    SizedBox(width: 28, height: 28, child: CircularProgressIndicator(value: progress > 0 ? progress : null, strokeWidth: 2)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name,
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
                           Text(
                             retryAttempt != null
@@ -354,8 +512,7 @@ class _QueueTab extends StatelessWidget {
                                 : progress > 0
                                     ? '${(progress * 100).toStringAsFixed(0)}% downloaded'
                                     : 'Starting download...',
-                            style: TextStyle(
-                                fontSize: 12, color: colorScheme.outline),
+                            style: TextStyle(fontSize: 12, color: colorScheme.outline),
                           ),
                         ],
                       ),
@@ -419,13 +576,9 @@ class _CatalogCategoryTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(category.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold)),
+                      Text(category.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(category.description,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline)),
+                      Text(category.description, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
                     ],
                   ),
                 ),
@@ -434,7 +587,7 @@ class _CatalogCategoryTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...category.entries.map((entry) => _CatalogModelTile(
+        ...category.entries.map((entry) => CatalogModelTile(
               entry: entry,
               mgrState: mgrState,
               selectedId: selectedId,
@@ -442,443 +595,6 @@ class _CatalogCategoryTab extends StatelessWidget {
               catalogService: catalogService,
             )),
       ],
-    );
-  }
-}
-
-// ── Catalog model tile ───────────────────────────────────────
-
-class _CatalogModelTile extends StatelessWidget {
-  final ModelCatalogEntry entry;
-  final ModelManagerState mgrState;
-  final String? selectedId;
-  final ModelManager manager;
-  final ModelCatalogService catalogService;
-
-  const _CatalogModelTile({
-    required this.entry,
-    required this.mgrState,
-    required this.selectedId,
-    required this.manager,
-    required this.catalogService,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final modelDef = catalogService.toModelDefinition(entry);
-    final state = mgrState.modelStates[entry.id] ?? ModelState.notDownloaded;
-    final installed = state == ModelState.downloaded;
-    final downloading = state == ModelState.downloading;
-    final failed = state == ModelState.failed;
-    final deleted = state == ModelState.deleted;
-    final progress = mgrState.progress[entry.id] ?? 0.0;
-    final retryAttempt = mgrState.retryAttempts[entry.id];
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(entry.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(entry.description,
-                          style: TextStyle(fontSize: 12, color: colorScheme.outline)),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _InfoChip(
-                            icon: Icons.memory,
-                            label: sizeLabel(modelDef.size),
-                          ),
-                          const SizedBox(width: 8),
-                          if (entry.contextLength > 0)
-                            _InfoChip(
-                              icon: Icons.format_list_numbered,
-                              label: '${entry.contextLength} ctx',
-                            ),
-                          if (installed && mgrState.modelDiskBytes.containsKey(entry.id)) ...[
-                            const SizedBox(width: 8),
-                            _InfoChip(
-                              icon: Icons.storage,
-                              label: _formatBytes(mgrState.modelDiskBytes[entry.id]!),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildStatusColumn(context, colorScheme, installed, downloading, failed, deleted, progress, retryAttempt),
-              ],
-            ),
-            if (downloading) ...[
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: progress > 0 ? progress : null),
-            ],
-            if (!installed && !downloading) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: deleted
-                      ? () => manager.redownloadModel(entry.id)
-                      : () => manager.downloadModel(modelDef),
-                  icon: Icon(deleted ? Icons.refresh : Icons.download, size: 18),
-                  label: Text(deleted ? 'Re-download' : 'Download'),
-                ),
-              ),
-            ],
-            if (failed) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => manager.retryDownload(entry.id),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Retry'),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusColumn(BuildContext context, ColorScheme colorScheme,
-      bool installed, bool downloading, bool failed, bool deleted,
-      double progress, int? retryAttempt) {
-    if (installed) {
-      return Column(
-        children: [
-          Icon(Icons.check_circle, color: colorScheme.primary, size: 28),
-          const SizedBox(height: 4),
-          Text('Installed',
-              style: TextStyle(fontSize: 11, color: colorScheme.primary, fontWeight: FontWeight.bold)),
-        ],
-      );
-    }
-    if (downloading) {
-      return Column(
-        children: [
-          SizedBox(
-            width: 28, height: 28,
-            child: CircularProgressIndicator(value: progress > 0 ? progress : null, strokeWidth: 2),
-          ),
-          const SizedBox(height: 4),
-          Text(retryAttempt != null ? 'Retry $retryAttempt' : '${(progress * 100).toStringAsFixed(0)}%',
-              style: TextStyle(fontSize: 11, color: colorScheme.outline)),
-        ],
-      );
-    }
-    if (failed) {
-      return Column(
-        children: [
-          Icon(Icons.error_outline, color: colorScheme.error, size: 28),
-          const SizedBox(height: 4),
-          Text('Failed', style: TextStyle(fontSize: 11, color: colorScheme.error)),
-        ],
-      );
-    }
-    if (deleted) {
-      return Column(
-        children: [
-          Icon(Icons.delete_outline, color: colorScheme.outline, size: 28),
-          const SizedBox(height: 4),
-          Text('Deleted', style: TextStyle(fontSize: 11, color: colorScheme.outline)),
-        ],
-      );
-    }
-    return const SizedBox.shrink();
-  }
-}
-
-// ── Local model tile ─────────────────────────────────────────
-
-class _ModelTile extends StatelessWidget {
-  final ModelDefinition model;
-  final ModelManagerState mgrState;
-  final bool isSelected;
-  final VoidCallback onSelect;
-  final ModelManager manager;
-
-  const _ModelTile({
-    required this.model,
-    required this.mgrState,
-    required this.isSelected,
-    required this.onSelect,
-    required this.manager,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final state = mgrState.modelStates[model.id] ?? ModelState.notDownloaded;
-    final installed = state == ModelState.downloaded;
-    final downloading = state == ModelState.downloading;
-    final failed = state == ModelState.failed;
-    final progress = mgrState.progress[model.id] ?? 0.0;
-    final retryAttempt = mgrState.retryAttempts[model.id];
-    final colorScheme = Theme.of(context).colorScheme;
-
-    IconData icon;
-    Color? iconColor;
-    if (installed) {
-      icon = isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked;
-      iconColor = isSelected ? colorScheme.primary : null;
-    } else if (downloading) {
-      icon = Icons.download;
-      iconColor = colorScheme.primary;
-    } else if (failed) {
-      icon = Icons.error_outline;
-      iconColor = colorScheme.error;
-    } else {
-      icon = Icons.memory;
-    }
-
-    String statusText;
-    if (installed) {
-      statusText = 'Installed';
-    } else if (downloading && retryAttempt != null) {
-      statusText = 'Retry $retryAttempt…';
-    } else if (downloading) {
-      statusText = '${(progress * 100).toStringAsFixed(0)}%';
-    } else if (failed) {
-      statusText = 'Failed';
-    } else {
-      statusText = 'Pending';
-    }
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isSelected ? colorScheme.primary : failed ? colorScheme.error : colorScheme.outlineVariant,
-          width: isSelected ? 2 : 1,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: installed ? onSelect : null,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(icon, color: iconColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(model.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(model.id, style: TextStyle(fontSize: 12, color: colorScheme.outline)),
-                        const SizedBox(width: 8),
-                        if (mgrState.modelDiskBytes.containsKey(model.id))
-                          _InfoChip(
-                            icon: Icons.storage,
-                            label: _formatBytes(mgrState.modelDiskBytes[model.id]!),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Text(statusText,
-                  style: TextStyle(
-                    fontWeight: installed && isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: failed ? colorScheme.error : isSelected ? colorScheme.primary : null,
-                  )),
-              if (installed) ...[
-                const SizedBox(width: 8),
-                PopupMenuButton<String>(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: Icon(Icons.more_vert, size: 18, color: colorScheme.outline),
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _confirmDelete(context, colorScheme);
-                    }
-                  },
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem(value: 'delete', child: Text('Delete model')),
-                  ],
-                ),
-              ],
-              if (failed) ...[
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => manager.retryDownload(model.id),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, ColorScheme colorScheme) {
-    final diskBytes = mgrState.modelDiskBytes[model.id];
-    final sizeText = diskBytes != null ? _formatBytes(diskBytes) : null;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete model?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('This will permanently remove "${model.name}" from your device. You can re-download it later.'),
-            if (sizeText != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: colorScheme.errorContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.storage, size: 16, color: colorScheme.error),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$sizeText will be freed',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onErrorContainer,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              manager.deleteModel(model.id);
-            },
-            child: Text('Delete', style: TextStyle(color: colorScheme.error)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Storage summary header ──────────────────────────────────
-
-class _StorageSummary extends StatelessWidget {
-  final int totalBytes;
-  final int modelCount;
-  final int freeDiskBytes;
-  const _StorageSummary({required this.totalBytes, required this.modelCount, required this.freeDiskBytes});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.storage, size: 20, color: cs.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Storage Usage',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$modelCount model${modelCount == 1 ? '' : 's'} · ${_formatBytes(totalBytes)} used',
-                  style: TextStyle(fontSize: 12, color: cs.outline),
-                ),
-                if (freeDiskBytes > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '${_formatBytes(freeDiskBytes)} free on device',
-                    style: TextStyle(fontSize: 12, color: cs.outline),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Format bytes to human-readable string.
-String _formatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  if (bytes < 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-}
-
-// ── Info chip ────────────────────────────────────────────────
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _InfoChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: cs.outline),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, color: cs.outline)),
-        ],
-      ),
     );
   }
 }

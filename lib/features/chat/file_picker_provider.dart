@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sutra/features/chat/file_storage_service.dart';
 import 'package:sutra/features/chat/uploaded_file.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 
 const _filesKey = 'uploaded_files';
 
@@ -16,9 +17,11 @@ class UploadedFilesNotifier extends StateNotifier<List<UploadedFile>> {
     _load();
   }
 
+  SharedPreferencesWithCache? _prefs;
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_filesKey);
+    _prefs = await prefsCache();
+    final raw = _prefs!.getString(_filesKey);
     if (raw != null) {
       try {
         final list = (jsonDecode(raw) as List)
@@ -30,8 +33,8 @@ class UploadedFilesNotifier extends StateNotifier<List<UploadedFile>> {
   }
 
   Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    final p = _prefs ?? await prefsCache();
+    await p.setString(
       _filesKey,
       jsonEncode(state.map((f) => f.toJson()).toList()),
     );

@@ -7,6 +7,15 @@ enum ModelSize {
   large,
 }
 
+/// Capabilities a model can support.
+enum ModelCapability {
+  /// Can handle web search context (requires ≥8K context).
+  webSearch,
+
+  /// Can handle file attachments / RAG.
+  fileAnalysis,
+}
+
 /// Human-readable label for a [ModelSize].
 String sizeLabel(ModelSize size) {
   switch (size) {
@@ -30,6 +39,9 @@ class ModelDefinition {
   final String localPath;
   final ChatTemplate chatTemplate;
 
+  /// Capabilities this model supports (e.g. webSearch, fileAnalysis).
+  final Set<ModelCapability> capabilities;
+
   /// Version string for tracking updates (e.g. "1.0.0").
   final String version;
 
@@ -47,6 +59,7 @@ class ModelDefinition {
     required this.downloadUrl,
     required this.localPath,
     this.chatTemplate = const GenericChatTemplate(),
+    this.capabilities = const <ModelCapability>{},
     this.version = '1.0.0',
     this.expectedChecksum,
     this.fileSizeBytes,
@@ -54,4 +67,7 @@ class ModelDefinition {
 
   /// Minimum free disk space required (2× file size as safety margin).
   int get requiredDiskBytes => (fileSizeBytes ?? 0) * 2;
+
+  /// Whether this model supports a given capability.
+  bool supports(ModelCapability cap) => capabilities.contains(cap);
 }

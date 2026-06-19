@@ -3,8 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sutra/core/storage/prefs_helper.dart';
 import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/provisioning/model_database.dart';
 import 'package:sutra/runtime/provisioning/model_downloader.dart';
@@ -149,8 +151,10 @@ void main() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
 
-    // Mock SharedPreferences so ModelManager.isWifiOnly() works.
-    SharedPreferences.setMockInitialValues({});
+    // Mock SharedPreferencesAsync so ModelManager.isWifiOnly() works.
+    resetPrefsCache();
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
 
     // Mock path_provider channel so ModelPaths works in tests.
     final pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
@@ -187,6 +191,7 @@ void main() {
   });
 
   tearDownAll(() {
+    resetPrefsCache();
     final pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);

@@ -23,7 +23,7 @@ void main() {
       //        flutter run -d <ios-simulator-id>
       //
       //   2. Copy the model into the container:
-      //        cp tinyllama.gguf \
+      //        cp model.gguf \
       //          ~/Library/Containers/<bundle-id>/Data/Documents/models/
       //
       //   3. Or use `open` to reveal the container:
@@ -58,7 +58,7 @@ void main() {
           '  1. flutter run -d <ios-device>\n'
           '  2. xcrun simctl get_app_container <device-udid> <bundle-id> data\n'
           '  3. mkdir -p <container>/Documents/models/\n'
-          '  4. cp tinyllama.gguf <container>/Documents/models/\n'
+          '  4. cp model.gguf <container>/Documents/models/\n'
           '  5. Re-run: flutter test integration_test/ios_model_response_test.dart -d <ios-device>',
         );
       }

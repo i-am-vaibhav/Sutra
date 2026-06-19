@@ -37,28 +37,6 @@ class QwenChatTemplate implements ChatTemplate {
   }
 }
 
-/// TinyLlama: ChatML variant with system/user/assistant tags.
-class TinyLlamaChatTemplate implements ChatTemplate {
-  const TinyLlamaChatTemplate();
-  @override
-  String formatPrompt({
-    required String systemPrompt,
-    required List<ChatMessage> history,
-    required String userMessage,
-    String? memoryText,
-  }) {
-    final b = StringBuffer();
-    b.write('<|system|>\n$systemPrompt</s>\n');
-    for (final msg in history) {
-      final tag = msg.role.name == 'user' ? '<|user|>' : '<|assistant|>';
-      b.write('$tag\n${msg.text}</s>\n');
-    }
-    b.write('<|user|>\n$userMessage</s>\n');
-    b.write('<|assistant|>\n');
-    return b.toString();
-  }
-}
-
 /// Phi-3: uses system, user, assistant, and end tokens.
 class Phi3ChatTemplate implements ChatTemplate {
   const Phi3ChatTemplate();
@@ -134,6 +112,36 @@ class Llama3ChatTemplate implements ChatTemplate {
     b.write('<|start_header_id|>user<|end_header_id|>\n\n');
     b.write('$userMessage<|eot_id|>');
     b.write('<|start_header_id|>assistant<|end_header_id|>\n\n');
+    return b.toString();
+  }
+}
+
+/// Mistral / Ministral: uses <s>[INST] ... [/INST] format.
+class MistralChatTemplate implements ChatTemplate {
+  const MistralChatTemplate();
+  @override
+  String formatPrompt({
+    required String systemPrompt,
+    required List<ChatMessage> history,
+    required String userMessage,
+    String? memoryText,
+  }) {
+    final b = StringBuffer();
+    b.write('<s>[INST] ');
+    b.write(systemPrompt);
+    if (memoryText != null && memoryText.isNotEmpty) {
+      b.write('\nRelevant memory:\n$memoryText');
+    }
+    b.write('\n\n');
+    for (int i = 0; i < history.length; i++) {
+      final msg = history[i];
+      if (msg.role.name == 'user') {
+        b.write('${msg.text} [/INST] ');
+      } else {
+        b.write('${msg.text} </s><s>[INST] ');
+      }
+    }
+    b.write('$userMessage [/INST] ');
     return b.toString();
   }
 }

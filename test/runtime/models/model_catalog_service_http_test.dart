@@ -50,7 +50,6 @@ void main() {
       final svc = ModelCatalogService(client: mockClient);
       final catalog = await svc.getCatalog();
       expect(catalog.allEntries, isNotEmpty);
-      expect(catalog.allEntries.length, 13);
     });
 
     test('uses fallback when network throws', () async {

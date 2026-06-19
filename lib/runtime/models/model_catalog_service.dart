@@ -64,21 +64,37 @@ class ModelCatalogService {
       downloadUrl: entry.downloadUrl,
       localPath: entry.localPath,
       chatTemplate: template,
+      capabilities: _deriveCapabilities(entry),
     );
+  }
+
+  /// Derive model capabilities from explicit catalog data and context length.
+  Set<ModelCapability> _deriveCapabilities(ModelCatalogEntry entry) {
+    final caps = <ModelCapability>{};
+    // Explicit capabilities from the catalog JSON.
+    for (final cap in entry.capabilities) {
+      if (cap == 'webSearch') caps.add(ModelCapability.webSearch);
+      if (cap == 'fileAnalysis') caps.add(ModelCapability.fileAnalysis);
+    }
+    // Auto-derive: ≥8K context supports web search.
+    if (entry.contextLength >= 8192 && !caps.contains(ModelCapability.webSearch)) {
+      caps.add(ModelCapability.webSearch);
+    }
+    return caps;
   }
 
   /// Auto-detect chat template from the hint string.
   ChatTemplate _detectTemplate(String hint) {
     final h = hint.toLowerCase();
     if (h.contains('qwen')) return const QwenChatTemplate();
-    if (h.contains('tinyllama') || h.contains('tiny')) {
-      return const TinyLlamaChatTemplate();
-    }
     if (h.contains('llama3') || h.contains('llama-3')) {
       return const Llama3ChatTemplate();
     }
     if (h.contains('phi')) return const Phi3ChatTemplate();
     if (h.contains('gemma')) return const GemmaChatTemplate();
+    if (h.contains('mistral') || h.contains('ministral')) {
+      return const MistralChatTemplate();
+    }
     return const GenericChatTemplate();
   }
 

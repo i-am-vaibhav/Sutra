@@ -9,7 +9,7 @@ void main() {
     test('returns tiny for <=1B params', () {
       final svc = ModelCatalogService();
       final cat = ModelCatalog.fallback;
-      final entry = cat.allEntries.firstWhere((e) => e.id == 'qwen2.5-0.5b');
+      final entry = cat.allEntries.firstWhere((e) => e.id == 'qwen3-0.6b');
       final def = svc.toModelDefinition(entry);
       expect(def.size, ModelSize.tiny);
     });
@@ -17,7 +17,7 @@ void main() {
     test('returns small for 1-2B params', () {
       final svc = ModelCatalogService();
       final cat = ModelCatalog.fallback;
-      final entry = cat.allEntries.firstWhere((e) => e.id == 'tinyllama-1.1b');
+      final entry = cat.allEntries.firstWhere((e) => e.id == 'qwen3-1.7b');
       final def = svc.toModelDefinition(entry);
       expect(def.size, ModelSize.small);
     });
@@ -25,7 +25,7 @@ void main() {
     test('returns medium for 2-4B params', () {
       final svc = ModelCatalogService();
       final cat = ModelCatalog.fallback;
-      final entry = cat.allEntries.firstWhere((e) => e.id == 'qwen2.5-3b');
+      final entry = cat.allEntries.firstWhere((e) => e.id == 'qwen3-4b');
       final def = svc.toModelDefinition(entry);
       expect(def.size, ModelSize.medium);
     });
@@ -38,14 +38,6 @@ void main() {
       final entry = cat.allEntries.firstWhere((e) => e.chatTemplateHint.contains('qwen'));
       final def = svc.toModelDefinition(entry);
       expect(def.chatTemplate, isA<QwenChatTemplate>());
-    });
-
-    test('detects tinyllama template', () {
-      final svc = ModelCatalogService();
-      final cat = ModelCatalog.fallback;
-      final entry = cat.allEntries.firstWhere((e) => e.chatTemplateHint.contains('tiny'));
-      final def = svc.toModelDefinition(entry);
-      expect(def.chatTemplate, isA<TinyLlamaChatTemplate>());
     });
 
     test('detects llama3 template', () {
@@ -72,12 +64,12 @@ void main() {
       expect(def.chatTemplate, isA<GemmaChatTemplate>());
     });
 
-    test('falls back to GenericChatTemplate for unknown hint', () {
+    test('detects mistral template', () {
       final svc = ModelCatalogService();
       final cat = ModelCatalog.fallback;
-      final entry = cat.allEntries.firstWhere((e) => !e.chatTemplateHint.toLowerCase().contains(RegExp(r'qwen|tiny|llama|phi|gemma')));
+      final entry = cat.allEntries.firstWhere((e) => e.chatTemplateHint.contains('mistral'));
       final def = svc.toModelDefinition(entry);
-      expect(def.chatTemplate, isA<GenericChatTemplate>());
+      expect(def.chatTemplate, isA<MistralChatTemplate>());
     });
   });
 
