@@ -16,4 +16,16 @@ class DeviceDetector {
       platform: raw['platform'],
     );
   }
+
+  /// Returns free disk space in bytes using native platform APIs.
+  /// On Android: StatFs on the data directory.
+  /// On iOS: URLResourceKey.volumeAvailableCapacityForImportantUsageKey.
+  static Future<int> getFreeDiskSpace() async {
+    try {
+      final result = await _channel.invokeMethod('getFreeDiskSpace');
+      return result as int;
+    } catch (e) {
+      return 0;
+    }
+  }
 }

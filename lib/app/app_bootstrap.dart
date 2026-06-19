@@ -1,9 +1,10 @@
+import 'package:sutra/core/logging/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sutra/app/app.dart';
 import 'package:sutra/app/bootstrap.dart';
-import 'package:sutra/runtime/llm/impl/llama_cpp_runtime.dart';
-import 'package:sutra/runtime/orchestration/runtime_provider.dart';
+import 'package:sutra/runtime/llm/llama_cpp_runtime.dart';
+import 'package:sutra/runtime/pipeline/runtime_provider.dart';
 
 class AppBootstrap extends ConsumerStatefulWidget {
   const AppBootstrap({super.key});
@@ -50,7 +51,7 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap>
           await (rm.llm as LlamaCppRuntime).dispose();
         }
       }).catchError((e) {
-        debugPrint('[AppBootstrap] Failed to dispose runtime on detach: $e');
+        Log.d('[AppBootstrap] Failed to dispose runtime on detach: $e');
       });
     }
   }

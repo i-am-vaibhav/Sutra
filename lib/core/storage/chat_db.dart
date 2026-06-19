@@ -4,6 +4,12 @@ import 'package:path/path.dart';
 class ChatDB {
   static Database? _db;
 
+  /// Close the database connection. Useful for testing or hot-restart.
+  static Future<void> close() async {
+    await _db?.close();
+    _db = null;
+  }
+
   static Future<Database> instance() async {
     if (_db != null) return _db!;
 
@@ -11,14 +17,24 @@ class ChatDB {
 
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sessions (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             createdAt INTEGER NOT NULL,
-            updatedAt INTEGER NOT NULL
+            updatedAt INTEGER NOT NULL,
+            archived INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            importance REAL NOT NULL DEFAULT 0.5,
+            createdAt INTEGER NOT NULL
           )
         ''');
 
@@ -63,6 +79,23 @@ class ChatDB {
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(sessionId, createdAt)',
           );
+        }
+
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE memories (
+              id TEXT PRIMARY KEY,
+              content TEXT NOT NULL,
+              importance REAL NOT NULL DEFAULT 0.5,
+              createdAt INTEGER NOT NULL
+            )
+          ''');
         }
       },
     );

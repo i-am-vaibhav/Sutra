@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:sutra/core/logging/log.dart';
 import 'package:http/http.dart' as http;
 import 'package:sutra/runtime/models/model_catalog.dart';
 import 'package:sutra/runtime/models/model_catalog_entry.dart';
 import 'package:sutra/runtime/models/model_definition.dart';
-import 'package:sutra/runtime/orchestration/chat_template.dart';
+import 'package:sutra/runtime/pipeline/chat_template.dart';
 
 /// Fetches and caches the remote model catalog.
 ///
@@ -36,18 +36,18 @@ class ModelCatalogService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         _catalog = ModelCatalog.fromJson(json);
-        debugPrint('[ModelCatalogService] Loaded remote catalog: '
+        Log.d('[ModelCatalogService] Loaded remote catalog: '
             '${_catalog!.categories.length} categories, '
             '${_catalog!.allEntries.length} models');
         return _catalog!;
       }
     } catch (e) {
-      debugPrint('[ModelCatalogService] Failed to fetch remote catalog: $e');
+      Log.d('[ModelCatalogService] Failed to fetch remote catalog: $e');
     }
 
     // Fall back to embedded catalog.
     _catalog = ModelCatalog.fallback;
-    debugPrint('[ModelCatalogService] Using fallback catalog: '
+    Log.d('[ModelCatalogService] Using fallback catalog: '
         '${_catalog!.allEntries.length} models');
     return _catalog!;
   }

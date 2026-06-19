@@ -1,4 +1,4 @@
-import 'package:sutra/runtime/orchestration/chat_template.dart';
+import 'package:sutra/runtime/pipeline/chat_template.dart';
 
 enum ModelSize {
   tiny,
@@ -30,6 +30,15 @@ class ModelDefinition {
   final String localPath;
   final ChatTemplate chatTemplate;
 
+  /// Version string for tracking updates (e.g. "1.0.0").
+  final String version;
+
+  /// Optional SHA-256 checksum for integrity verification.
+  final String? expectedChecksum;
+
+  /// Expected file size in bytes (used for disk space checks).
+  final int? fileSizeBytes;
+
   const ModelDefinition({
     required this.id,
     required this.name,
@@ -38,5 +47,11 @@ class ModelDefinition {
     required this.downloadUrl,
     required this.localPath,
     this.chatTemplate = const GenericChatTemplate(),
+    this.version = '1.0.0',
+    this.expectedChecksum,
+    this.fileSizeBytes,
   });
+
+  /// Minimum free disk space required (2× file size as safety margin).
+  int get requiredDiskBytes => (fileSizeBytes ?? 0) * 2;
 }

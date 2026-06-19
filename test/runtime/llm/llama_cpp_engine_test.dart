@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sutra/runtime/llm/impl/llama_cpp/llama_cpp_engine.dart';
+import 'package:sutra/runtime/llm/llama_cpp_engine.dart';
 
 void main() {
   group('LlamaCppEngine', () {

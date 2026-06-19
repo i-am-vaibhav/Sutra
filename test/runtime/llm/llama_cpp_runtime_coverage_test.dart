@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sutra/runtime/llm/impl/llama_cpp_runtime.dart';
-import 'package:sutra/runtime/llm/impl/llama_cpp/llama_cpp_engine.dart';
+import 'package:sutra/runtime/llm/llama_cpp_runtime.dart';
+import 'package:sutra/runtime/llm/llama_cpp_engine.dart';
 
 class _FailingEngine extends LlamaCppEngine {
   @override

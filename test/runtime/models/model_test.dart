@@ -3,7 +3,7 @@ import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/models/model_registry.dart';
 import 'package:sutra/runtime/models/model_policy.dart';
 import 'package:sutra/runtime/device/device_tier.dart';
-import 'package:sutra/runtime/orchestration/chat_template.dart';
+import 'package:sutra/runtime/pipeline/chat_template.dart';
 
 void main() {
   group('ModelDefinition', () {

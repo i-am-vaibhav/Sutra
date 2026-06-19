@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sutra/runtime/models/model_catalog_service.dart';
 import 'package:sutra/runtime/models/model_catalog.dart';
 import 'package:sutra/runtime/models/model_definition.dart';
-import 'package:sutra/runtime/orchestration/chat_template.dart';
+import 'package:sutra/runtime/pipeline/chat_template.dart';
 
 void main() {
   group('ModelCatalogService._inferSize', () {

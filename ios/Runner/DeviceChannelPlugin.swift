@@ -21,24 +21,40 @@ class DeviceChannelPlugin: NSObject, FlutterPlugin {
   }
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard call.method == "getDeviceProfile" else {
+    switch call.method {
+    case "getDeviceProfile":
+      let processInfo = ProcessInfo.processInfo
+      let ramMB = processInfo.physicalMemory / 1024 / 1024
+      let cpuCores = processInfo.processorCount
+      let device = MTLCreateSystemDefaultDevice()
+
+      result([
+        "ramMB": ramMB,
+        "cpuCores": cpuCores,
+        "hasGpu": device != nil,
+        "gpuName": device?.name ?? "none",
+        "gpuFamily": detectGpuFamily(device),
+        "platform": "ios",
+      ])
+
+    case "getFreeDiskSpace":
+      let fileURL = URL(fileURLWithPath: NSHomeDirectory())
+      do {
+        let values = try fileURL.resourceValues(
+          forKeys: [.volumeAvailableCapacityForImportantUsageKey]
+        )
+        if let capacity = values.volumeAvailableCapacityForImportantUsage {
+          result(capacity)
+        } else {
+          result(0)
+        }
+      } catch {
+        result(FlutterError(code: "DISK_SPACE_ERROR", message: error.localizedDescription, details: nil))
+      }
+
+    default:
       result(FlutterMethodNotImplemented)
-      return
     }
-
-    let processInfo = ProcessInfo.processInfo
-    let ramMB = processInfo.physicalMemory / 1024 / 1024
-    let cpuCores = processInfo.processorCount
-    let device = MTLCreateSystemDefaultDevice()
-
-    result([
-      "ramMB": ramMB,
-      "cpuCores": cpuCores,
-      "hasGpu": device != nil,
-      "gpuName": device?.name ?? "none",
-      "gpuFamily": detectGpuFamily(device),
-      "platform": "ios",
-    ])
   }
 
   // MARK: - GPU Family Detection

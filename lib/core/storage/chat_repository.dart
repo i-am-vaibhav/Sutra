@@ -11,13 +11,25 @@ class ChatSession {
   final String title;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool archived;
 
   const ChatSession({
     required this.id,
     required this.title,
     required this.createdAt,
     required this.updatedAt,
+    this.archived = false,
   });
+
+  ChatSession copyWith({String? title, bool? archived}) {
+    return ChatSession(
+      id: id,
+      title: title ?? this.title,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      archived: archived ?? this.archived,
+    );
+  }
 }
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
@@ -47,9 +59,11 @@ class ChatRepository {
     );
   }
 
-  Future<List<ChatSession>> getSessions() async {
+  Future<List<ChatSession>> getSessions({bool includeArchived = false}) async {
     final db = await ChatDB.instance();
-    final rows = await db.query('sessions', orderBy: 'updatedAt DESC');
+    final where = includeArchived ? 'archived = 1' : 'archived = 0';
+    final rows = await db.query('sessions',
+        where: where, orderBy: 'updatedAt DESC');
 
     return rows
         .map((r) => ChatSession(
@@ -59,8 +73,35 @@ class ChatRepository {
                   r['createdAt'] as int),
               updatedAt: DateTime.fromMillisecondsSinceEpoch(
                   r['updatedAt'] as int),
+              archived: (r['archived'] as int) == 1,
             ))
         .toList();
+  }
+
+  Future<void> archiveSession(String sessionId) async {
+    final db = await ChatDB.instance();
+    await db.update(
+      'sessions',
+      {
+        'archived': 1,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  Future<void> unarchiveSession(String sessionId) async {
+    final db = await ChatDB.instance();
+    await db.update(
+      'sessions',
+      {
+        'archived': 0,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
   }
 
   Future<void> updateSessionTitle(String sessionId, String title) async {
@@ -80,6 +121,25 @@ class ChatRepository {
     final db = await ChatDB.instance();
     await db.delete('messages', where: 'sessionId = ?', whereArgs: [sessionId]);
     await db.delete('sessions', where: 'id = ?', whereArgs: [sessionId]);
+  }
+
+  /// Restore a previously deleted session and its messages.
+  Future<void> restoreSession(
+    ChatSession session,
+    List<Map<String, dynamic>> messages,
+  ) async {
+    final db = await ChatDB.instance();
+    await db.insert('sessions', {
+      'id': session.id,
+      'title': session.title,
+      'createdAt': session.createdAt.millisecondsSinceEpoch,
+      'updatedAt': session.updatedAt.millisecondsSinceEpoch,
+      'archived': session.archived ? 1 : 0,
+    });
+    for (final msg in messages) {
+      await db.insert('messages', msg,
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> touchSession(String sessionId) async {

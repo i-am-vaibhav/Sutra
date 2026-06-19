@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sutra/app/theme/theme_provider.dart';
 import 'package:sutra/core/widgets/info_row.dart';
 import 'package:sutra/runtime/context/context_settings.dart';
 import 'package:sutra/runtime/context/context_settings_provider.dart';
 import 'package:sutra/runtime/device/device_provider.dart';
 import 'package:sutra/runtime/device/device_profile.dart';
 import 'package:sutra/runtime/device/device_tier.dart';
-import 'package:sutra/runtime/orchestration/context_builder.dart';
+import 'package:sutra/runtime/provisioning/wifi_only_provider.dart';
+import 'package:sutra/runtime/pipeline/context_builder.dart';
+import 'package:sutra/runtime/tts/tts_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -47,6 +50,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Accessibility ──
+          Text('Accessibility',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _ReadAloudSection(colorScheme: colorScheme),
+
+          const SizedBox(height: 24),
+
+          // ── Appearance ──
+          Text('Appearance',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _ThemeToggleSection(colorScheme: colorScheme),
+
+          const SizedBox(height: 24),
+
+          // ── Downloads ──
+          Text('Downloads',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('Control how models are downloaded.',
+              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
+          const SizedBox(height: 12),
+          _WifiOnlyToggle(colorScheme: colorScheme),
+
+          const SizedBox(height: 24),
+
           // ── System Prompt ──
           Text('System Prompt',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -115,6 +145,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
+// ── Read Aloud Section ──────────────────────────────────
+
+class _ReadAloudSection extends ConsumerWidget {
+  final ColorScheme colorScheme;
+  const _ReadAloudSection({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = colorScheme;
+    final ttsState = ref.watch(ttsProvider);
+    final ttsNotifier = ref.read(ttsProvider.notifier);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              ttsState.isEnabled ? Icons.volume_up : Icons.volume_off,
+              size: 20,
+              color: ttsState.isEnabled ? cs.primary : cs.outline,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Read Aloud', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Automatically read model responses aloud',
+                    style: TextStyle(fontSize: 12, color: cs.outline),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: ttsState.isEnabled,
+              onChanged: ttsNotifier.toggleEnabled,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Context Settings Section ─────────────────────────────────
 
 class _ContextSettingsSection extends ConsumerWidget {
@@ -146,7 +223,6 @@ class _ContextSettingsSection extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
 
-        // ── User Profile Toggle ──
         _FeatureToggle(
           title: 'User Profile',
           subtitle: 'Tell the model about yourself (name, profession, interests)',
@@ -159,7 +235,6 @@ class _ContextSettingsSection extends ConsumerWidget {
           colorScheme: colorScheme,
         ),
 
-        // ── User Profile Fields (expanded when enabled) ──
         if (settings.userProfileEnabled) ...[
           const SizedBox(height: 8),
           _UserProfileFields(settings: settings, notifier: notifier),
@@ -167,7 +242,6 @@ class _ContextSettingsSection extends ConsumerWidget {
 
         const SizedBox(height: 8),
 
-        // ── Conversation Memory Toggle ──
         _FeatureToggle(
           title: 'Conversation Memory',
           subtitle: 'Remember facts from past conversations across sessions',
@@ -182,24 +256,7 @@ class _ContextSettingsSection extends ConsumerWidget {
 
         const SizedBox(height: 8),
 
-        // ── Document Index Toggle ──
-        _FeatureToggle(
-          title: 'Document Context',
-          subtitle: 'Reference documents and notes when answering questions',
-          value: settings.documentIndexEnabled,
-          onChanged: notifier.toggleDocumentIndex,
-          warning: settings.documentIndexEnabled
-              ? 'Adds full document text to prompts. Use short documents to avoid context overflow.'
-              : null,
-          icon: Icons.description_outlined,
-          colorScheme: colorScheme,
-        ),
 
-        // ── Document List (expanded when enabled) ──
-        if (settings.documentIndexEnabled) ...[
-          const SizedBox(height: 8),
-          _DocumentListSection(settings: settings, notifier: notifier),
-        ],
       ],
     );
   }
@@ -282,35 +339,80 @@ class _FeatureToggle extends StatelessWidget {
 
 // ── User Profile Fields ─────────────────────────────────────
 
-class _UserProfileFields extends ConsumerWidget {
+class _UserProfileFields extends ConsumerStatefulWidget {
   final ContextSettings settings;
   final ContextSettingsNotifier notifier;
 
   const _UserProfileFields({required this.settings, required this.notifier});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_UserProfileFields> createState() => _UserProfileFieldsState();
+}
+
+class _UserProfileFieldsState extends ConsumerState<_UserProfileFields> {
+  late TextEditingController _nameCtrl;
+  late TextEditingController _professionCtrl;
+  late TextEditingController _interestsCtrl;
+  late TextEditingController _extraInfoCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.settings.userName);
+    _professionCtrl = TextEditingController(text: widget.settings.userProfession);
+    _interestsCtrl = TextEditingController(text: widget.settings.userInterests);
+    _extraInfoCtrl = TextEditingController(text: widget.settings.userExtraInfo);
+  }
+
+  @override
+  void didUpdateWidget(covariant _UserProfileFields oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_nameCtrl.text != widget.settings.userName) {
+      _nameCtrl.text = widget.settings.userName;
+    }
+    if (_professionCtrl.text != widget.settings.userProfession) {
+      _professionCtrl.text = widget.settings.userProfession;
+    }
+    if (_interestsCtrl.text != widget.settings.userInterests) {
+      _interestsCtrl.text = widget.settings.userInterests;
+    }
+    if (_extraInfoCtrl.text != widget.settings.userExtraInfo) {
+      _extraInfoCtrl.text = widget.settings.userExtraInfo;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _professionCtrl.dispose();
+    _interestsCtrl.dispose();
+    _extraInfoCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _field('Name', settings.userName, notifier.updateUserName),
-            _field('Profession', settings.userProfession, notifier.updateUserProfession),
-            _field('Interests', settings.userInterests, notifier.updateUserInterests),
-            _field('Additional Info', settings.userExtraInfo, notifier.updateUserExtraInfo),
+            _field(_nameCtrl, 'Name', widget.notifier.updateUserName),
+            _field(_professionCtrl, 'Profession', widget.notifier.updateUserProfession),
+            _field(_interestsCtrl, 'Interests', widget.notifier.updateUserInterests),
+            _field(_extraInfoCtrl, 'Additional Info', widget.notifier.updateUserExtraInfo),
           ],
         ),
       ),
     );
   }
 
-  Widget _field(String label, String value, ValueChanged<String> onChanged) {
+  Widget _field(TextEditingController ctrl, String label, ValueChanged<String> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
-        controller: TextEditingController(text: value),
+        controller: ctrl,
         decoration: InputDecoration(
           labelText: label,
           hintText: 'e.g. ${_hintFor(label)}',
@@ -324,7 +426,7 @@ class _UserProfileFields extends ConsumerWidget {
 
   String _hintFor(String label) {
     return switch (label) {
-      'Name' => 'Alice',
+      'Name' => 'Vaibhav',
       'Profession' => 'Software Engineer',
       'Interests' => 'AI, photography, hiking',
       _ => 'anything else you want the model to know',
@@ -334,115 +436,124 @@ class _UserProfileFields extends ConsumerWidget {
 
 // ── Document List Section ───────────────────────────────────
 
-class _DocumentListSection extends ConsumerWidget {
-  final ContextSettings settings;
-  final ContextSettingsNotifier notifier;
+// ── Theme Toggle Section ────────────────────────────────────
 
-  const _DocumentListSection({required this.settings, required this.notifier});
+class _ThemeToggleSection extends ConsumerWidget {
+  final ColorScheme colorScheme;
+  const _ThemeToggleSection({required this.colorScheme});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final currentMode = ref.watch(themeModeProvider);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (settings.documents.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Text(
-                  'No documents added yet.\nTap + to add a note or paste text.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: colorScheme.outline),
-                ),
-              ),
-            ),
-          )
-        else
-          ...settings.documents.map((doc) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.description, size: 20),
-                  title: Text(doc.title,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                    doc.content.length > 80
-                        ? '${doc.content.substring(0, 80)}…'
-                        : doc.content,
-                    style: TextStyle(fontSize: 11, color: colorScheme.outline),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: () => notifier.removeDocument(doc.id),
-                  ),
-                ),
-              )),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _showAddDocumentDialog(context, ref),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add Document'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showAddDocumentDialog(BuildContext context, WidgetRef ref) {
-    final titleCtrl = TextEditingController();
-    final contentCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Document'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: titleCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                hintText: 'e.g. API Documentation',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+            Row(
+              children: [
+                Icon(
+                  currentMode == ThemeMode.dark
+                      ? Icons.dark_mode
+                      : currentMode == ThemeMode.light
+                          ? Icons.light_mode
+                          : Icons.brightness_auto,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Theme', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Choose your preferred appearance',
+                        style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: contentCtrl,
-              maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Content',
-                hintText: 'Paste text or write notes here…',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode, size: 18),
+                  label: Text('Light'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode, size: 18),
+                  label: Text('Dark'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto, size: 18),
+                  label: Text('System'),
+                ),
+              ],
+              selected: {currentMode},
+              onSelectionChanged: (selected) {
+                ref.read(themeModeProvider.notifier).setThemeMode(selected.first);
+              },
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (titleCtrl.text.isNotEmpty && contentCtrl.text.isNotEmpty) {
-                ref.read(contextSettingsProvider.notifier).addDocument(DocumentEntry(
-                      id: DateTime.now().toIso8601String(),
-                      title: titleCtrl.text,
-                      content: contentCtrl.text,
-                      createdAt: DateTime.now(),
-                    ));
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
+      ),
+    );
+  }
+}
+
+// ── WiFi-Only Toggle ────────────────────────────────────
+
+class _WifiOnlyToggle extends ConsumerWidget {
+  final ColorScheme colorScheme;
+  const _WifiOnlyToggle({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final wifiOnly = ref.watch(wifiOnlyProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              wifiOnly ? Icons.wifi : Icons.wifi_off,
+              size: 20,
+              color: wifiOnly ? colorScheme.primary : colorScheme.outline,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Wi-Fi Only', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    wifiOnly
+                        ? 'Models download only on Wi-Fi'
+                        : 'Models can download over mobile data',
+                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: wifiOnly,
+              onChanged: (value) {
+                ref.read(wifiOnlyProvider.notifier).toggle(value);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

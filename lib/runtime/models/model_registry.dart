@@ -1,5 +1,5 @@
 import 'package:sutra/runtime/models/model_definition.dart';
-import 'package:sutra/runtime/orchestration/chat_template.dart';
+import 'package:sutra/runtime/pipeline/chat_template.dart';
 
 class ModelRegistry {
   static const micro = ModelDefinition(

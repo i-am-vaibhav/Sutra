@@ -4,6 +4,8 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Environment
+import android.os.StatFs
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -55,6 +57,21 @@ class DeviceChannelPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             )
 
             result.success(response)
+        } else if (call.method == "getFreeDiskSpace") {
+            try {
+                // Use the app's own files directory to match the actual
+                // partition the app writes to (handles split-storage devices).
+                val ctx = applicationContext
+                if (ctx == null) {
+                    result.error("NO_CONTEXT", "Application context is not available", null)
+                    return
+                }
+                val stat = StatFs(ctx.filesDir.path)
+                val freeBytes = stat.blockSizeLong * stat.availableBlocksLong
+                result.success(freeBytes)
+            } catch (e: Exception) {
+                result.error("DISK_SPACE_ERROR", e.message, null)
+            }
         } else {
             result.notImplemented()
         }

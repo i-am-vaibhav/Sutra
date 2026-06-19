@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sutra/app/theme/app_theme.dart';
+import 'package:sutra/app/theme/theme_provider.dart';
 import 'package:sutra/features/chat/chat_screen.dart';
-import 'package:sutra/features/files/files_screen.dart';
 import 'package:sutra/features/models/models_screen.dart';
 import 'package:sutra/features/settings/settings_screen.dart';
 
-class SutraApp extends StatelessWidget {
+class SutraApp extends ConsumerWidget {
   const SutraApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Sutra',
-      theme: AppTheme.dark(),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
       routerConfig: _router,
     );
   }
@@ -37,16 +42,6 @@ final _router = GoRouter(
               path: '/chat',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: ChatScreen(),
-              ),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/files',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: FilesScreen(),
               ),
             ),
           ],
@@ -98,11 +93,6 @@ class HomeShell extends StatelessWidget {
             icon: Icon(Icons.chat_outlined),
             selectedIcon: Icon(Icons.chat),
             label: 'Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.folder_outlined),
-            selectedIcon: Icon(Icons.folder),
-            label: 'Files',
           ),
           NavigationDestination(
             icon: Icon(Icons.memory_outlined),

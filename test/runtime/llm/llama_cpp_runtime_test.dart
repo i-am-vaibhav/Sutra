@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sutra/runtime/llm/impl/llama_cpp/llama_cpp_engine.dart';
-import 'package:sutra/runtime/llm/impl/llama_cpp_runtime.dart';
+import 'package:sutra/runtime/llm/llama_cpp_engine.dart';
+import 'package:sutra/runtime/llm/llama_cpp_runtime.dart';
 
 /// A lightweight mock engine for testing runtime logic without FFI.
 class _MockLlamaCppEngine extends LlamaCppEngine {

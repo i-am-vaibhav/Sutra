@@ -1,3 +1,4 @@
+import 'package:sutra/core/logging/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,9 +8,10 @@ import '../../runtime/models/model_catalog_service.dart';
 import '../../runtime/models/model_catalog_service_provider.dart';
 import '../../runtime/models/model_definition.dart';
 import '../../runtime/models/model_registry.dart';
-import '../../runtime/models_provision/model_provisioning_service.dart';
-import '../../runtime/models_provision/model_provisioning_state.dart';
-import '../../runtime/orchestration/selected_model_provider.dart';
+import '../../runtime/provisioning/model_database.dart';
+import '../../runtime/provisioning/model_manager.dart';
+import '../../runtime/provisioning/model_manager_provider.dart';
+import '../../runtime/pipeline/selected_model_provider.dart';
 
 /// Icons mapped to category icon names from the remote catalog.
 const _categoryIcons = <String, IconData>{
@@ -31,17 +33,15 @@ class ModelsScreen extends ConsumerStatefulWidget {
 }
 
 class _ModelsScreenState extends ConsumerState<ModelsScreen>
-    with SingleTickerProviderStateMixin {
-  bool _autoSelected = false;
-  late TabController _tabController;
+    with TickerProviderStateMixin {
+  TabController? _tabController;
   ModelCatalog? _catalog;
   bool _loadingCatalog = true;
+  bool _loadingCatalogInProgress = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    // Defer ref.read() to after first frame so Riverpod is fully ready.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadCatalog();
     });
@@ -49,46 +49,47 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
   Future<void> _loadCatalog() async {
+    if (_loadingCatalogInProgress) return;
+    _loadingCatalogInProgress = true;
     try {
       final catalogService = ref.read(modelCatalogServiceProvider);
       final catalog = await catalogService.getCatalog();
-      if (mounted) {
-        setState(() {
-          _catalog = catalog;
-          _loadingCatalog = false;
-          _tabController.dispose();
-          _tabController = TabController(
-            length: catalog.categories.length + 1,
-            vsync: this,
-          );
-        });
-      }
+      if (!mounted) return;
+      _tabController?.dispose();
+      _tabController = TabController(
+        length: catalog.categories.length + 2, // Local + Queue + categories
+        vsync: this,
+      );
+      setState(() {
+        _catalog = catalog;
+        _loadingCatalog = false;
+      });
     } catch (e) {
-      debugPrint('[ModelsScreen] Failed to load catalog: $e');
-      // Always fall back to embedded catalog on error.
-      if (mounted) {
-        setState(() {
-          _catalog = ModelCatalog.fallback;
-          _loadingCatalog = false;
-          _tabController.dispose();
-          _tabController = TabController(
-            length: ModelCatalog.fallback.categories.length + 1,
-            vsync: this,
-          );
-        });
-      }
+      Log.d('[ModelsScreen] Failed to load catalog: $e');
+      if (!mounted) return;
+      _tabController?.dispose();
+      _tabController = TabController(
+        length: ModelCatalog.fallback.categories.length + 2,
+        vsync: this,
+      );
+      setState(() {
+        _catalog = ModelCatalog.fallback;
+        _loadingCatalog = false;
+      });
+    } finally {
+      _loadingCatalogInProgress = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedId = ref.watch(selectedModelIdProvider);
-    final provisioningService = ref.read(modelProvisioningServiceProvider);
+    final manager = ref.read(modelManagerProvider);
     final catalogService = ref.read(modelCatalogServiceProvider);
 
     return Scaffold(
@@ -101,6 +102,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                 controller: _tabController,
                 tabs: [
                   const Tab(text: 'Local'),
+                  const Tab(text: 'Queue'),
                   ...?_catalog?.categories.map((c) => Tab(
                         child: Text(c.name, style: const TextStyle(fontSize: 13)),
                       )),
@@ -109,26 +111,53 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       ),
       body: _loadingCatalog
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<ModelProvisioningState>(
-              stream: provisioningService.stream,
-              initialData: ModelProvisioningState.empty(),
+          : StreamBuilder<ModelManagerState>(
+              stream: manager.stream,
+              initialData: manager.state,
               builder: (context, snapshot) {
-                final state =
-                    snapshot.data ?? ModelProvisioningState.empty();
+                final mgrState = snapshot.data ?? const ModelManagerState();
 
-                if (!_autoSelected &&
-                    selectedId == null &&
-                    state.installed.isNotEmpty) {
-                  _autoSelected = true;
-                  final firstInstalled = ModelRegistry.all.firstWhere(
-                    (m) => state.installed.contains(m.id),
-                    orElse: () => ModelRegistry.all.first,
-                  );
-                  Future.microtask(() {
+                // Show SnackBar on storage warning.
+                if (mgrState.storageWarning != null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
-                      ref
-                          .read(selectedModelIdProvider.notifier)
-                          .select(firstInstalled.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(mgrState.storageWarning!),
+                          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 3),
+                          action: SnackBarAction(
+                            label: 'Dismiss',
+                            textColor: Theme.of(context).colorScheme.onErrorContainer,
+                            onPressed: () => manager.clearStorageWarning(),
+                          ),
+                        ),
+                      );
+                      manager.clearStorageWarning();
+                    }
+                  });
+                }
+
+                // Show SnackBar on download completion.
+                if (mgrState.downloadCompleteMessage != null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(mgrState.downloadCompleteMessage!)),
+                            ],
+                          ),
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                      manager.clearDownloadComplete();
                     }
                   });
                 }
@@ -137,20 +166,25 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                   controller: _tabController,
                   children: [
                     _LocalModelsTab(
-                      state: state,
+                      mgrState: mgrState,
                       selectedId: selectedId,
                       onModelSelected: (id) {
                         ref.read(selectedModelIdProvider.notifier).select(id);
                       },
-                      provisioningService: provisioningService,
+                      manager: manager,
+                      catalogService: catalogService,
+                    ),
+                    _QueueTab(
+                      mgrState: mgrState,
+                      manager: manager,
                       catalogService: catalogService,
                     ),
                     ...?_catalog?.categories.map((category) =>
                         _CatalogCategoryTab(
                           category: category,
-                          state: state,
+                          mgrState: mgrState,
                           selectedId: selectedId,
-                          provisioningService: provisioningService,
+                          manager: manager,
                           catalogService: catalogService,
                         )),
                   ],
@@ -164,17 +198,17 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 // ── Local (installed) models tab ─────────────────────────────
 
 class _LocalModelsTab extends StatelessWidget {
-  final ModelProvisioningState state;
+  final ModelManagerState mgrState;
   final String? selectedId;
   final ValueChanged<String> onModelSelected;
-  final ModelProvisioningService provisioningService;
+  final ModelManager manager;
   final ModelCatalogService catalogService;
 
   const _LocalModelsTab({
-    required this.state,
+    required this.mgrState,
     required this.selectedId,
     required this.onModelSelected,
-    required this.provisioningService,
+    required this.manager,
     required this.catalogService,
   });
 
@@ -182,7 +216,7 @@ class _LocalModelsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final allModels = ModelRegistry.all;
     final installed =
-        allModels.where((m) => state.installed.contains(m.id)).toList();
+        allModels.where((m) => mgrState.installedIds.contains(m.id)).toList();
 
     if (installed.isEmpty) {
       return Center(
@@ -203,19 +237,143 @@ class _LocalModelsTab extends StatelessWidget {
       );
     }
 
+    return Column(
+      children: [
+        _StorageSummary(totalBytes: mgrState.totalDiskBytes, modelCount: installed.length, freeDiskBytes: mgrState.freeDiskBytes),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: installed.length,
+            itemBuilder: (context, index) {
+              final model = installed[index];
+              return _ModelTile(
+                model: model,
+                mgrState: mgrState,
+                isSelected: selectedId == model.id,
+                onSelect: () => onModelSelected(model.id),
+                manager: manager,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Queue (downloading) tab ──────────────────────────────────
+
+class _QueueTab extends StatelessWidget {
+  final ModelManagerState mgrState;
+  final ModelManager manager;
+  final ModelCatalogService catalogService;
+
+  const _QueueTab({
+    required this.mgrState,
+    required this.manager,
+    required this.catalogService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Collect all models that are downloading.
+    final downloadingModels = <MapEntry<String, ModelState>>[];
+    mgrState.modelStates.forEach((id, state) {
+      if (state == ModelState.downloading || state == ModelState.paused) {
+        downloadingModels.add(MapEntry(id, state));
+      }
+    });
+
+    if (downloadingModels.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.download_done, size: 48,
+                color: colorScheme.outline),
+            const SizedBox(height: 16),
+            Text('No downloads in queue',
+                style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text('Downloaded models will appear here',
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline)),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: installed.length,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: downloadingModels.length,
       itemBuilder: (context, index) {
-        final model = installed[index];
-        return _ModelTile(
-          model: model,
-          state: state,
-          isSelected: selectedId == model.id,
-          onSelect: () => onModelSelected(model.id),
-          onRetry: state.failed.contains(model.id)
-              ? () => provisioningService.retry(model)
-              : null,
+        final entry = downloadingModels[index];
+        final modelId = entry.key;
+        final progress = mgrState.progress[modelId] ?? 0.0;
+        final retryAttempt = mgrState.retryAttempts[modelId];
+
+        // Find model name from registry or catalog.
+        final regModel = ModelRegistry.all
+            .where((m) => m.id == modelId)
+            .firstOrNull;
+        final catEntry = catalogService.catalog.allEntries
+            .where((e) => e.id == modelId)
+            .firstOrNull;
+        final name = regModel?.name ?? catEntry?.name ?? modelId;
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 28, height: 28,
+                      child: CircularProgressIndicator(
+                        value: progress > 0 ? progress : null,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name,
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          Text(
+                            retryAttempt != null
+                                ? 'Retry $retryAttempt — ${(progress * 100).toStringAsFixed(0)}%'
+                                : progress > 0
+                                    ? '${(progress * 100).toStringAsFixed(0)}% downloaded'
+                                    : 'Starting download...',
+                            style: TextStyle(
+                                fontSize: 12, color: colorScheme.outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: 'Cancel download',
+                      onPressed: () => manager.cancelDownload(modelId),
+                    ),
+                  ],
+                ),
+                if (progress > 0) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(value: progress),
+                ],
+              ],
+            ),
+          ),
         );
       },
     );
@@ -226,16 +384,16 @@ class _LocalModelsTab extends StatelessWidget {
 
 class _CatalogCategoryTab extends StatelessWidget {
   final ModelCatalogCategory category;
-  final ModelProvisioningState state;
+  final ModelManagerState mgrState;
   final String? selectedId;
-  final ModelProvisioningService provisioningService;
+  final ModelManager manager;
   final ModelCatalogService catalogService;
 
   const _CatalogCategoryTab({
     required this.category,
-    required this.state,
+    required this.mgrState,
     required this.selectedId,
-    required this.provisioningService,
+    required this.manager,
     required this.catalogService,
   });
 
@@ -278,9 +436,9 @@ class _CatalogCategoryTab extends StatelessWidget {
         const SizedBox(height: 12),
         ...category.entries.map((entry) => _CatalogModelTile(
               entry: entry,
-              state: state,
+              mgrState: mgrState,
               selectedId: selectedId,
-              provisioningService: provisioningService,
+              manager: manager,
               catalogService: catalogService,
             )),
       ],
@@ -292,27 +450,29 @@ class _CatalogCategoryTab extends StatelessWidget {
 
 class _CatalogModelTile extends StatelessWidget {
   final ModelCatalogEntry entry;
-  final ModelProvisioningState state;
+  final ModelManagerState mgrState;
   final String? selectedId;
-  final ModelProvisioningService provisioningService;
+  final ModelManager manager;
   final ModelCatalogService catalogService;
 
   const _CatalogModelTile({
     required this.entry,
-    required this.state,
+    required this.mgrState,
     required this.selectedId,
-    required this.provisioningService,
+    required this.manager,
     required this.catalogService,
   });
 
   @override
   Widget build(BuildContext context) {
     final modelDef = catalogService.toModelDefinition(entry);
-    final installed = state.installed.contains(entry.id);
-    final downloading = state.downloading.contains(entry.id);
-    final failed = state.failed.contains(entry.id);
-    final progress = state.progress[entry.id] ?? 0.0;
-    final retryAttempt = state.retryAttempts[entry.id];
+    final state = mgrState.modelStates[entry.id] ?? ModelState.notDownloaded;
+    final installed = state == ModelState.downloaded;
+    final downloading = state == ModelState.downloading;
+    final failed = state == ModelState.failed;
+    final deleted = state == ModelState.deleted;
+    final progress = mgrState.progress[entry.id] ?? 0.0;
+    final retryAttempt = mgrState.retryAttempts[entry.id];
     final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -346,27 +506,36 @@ class _CatalogModelTile extends StatelessWidget {
                               icon: Icons.format_list_numbered,
                               label: '${entry.contextLength} ctx',
                             ),
+                          if (installed && mgrState.modelDiskBytes.containsKey(entry.id)) ...[
+                            const SizedBox(width: 8),
+                            _InfoChip(
+                              icon: Icons.storage,
+                              label: _formatBytes(mgrState.modelDiskBytes[entry.id]!),
+                            ),
+                          ],
                         ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                _buildStatusColumn(context, colorScheme, installed, downloading, failed, progress, retryAttempt),
+                _buildStatusColumn(context, colorScheme, installed, downloading, failed, deleted, progress, retryAttempt),
               ],
             ),
             if (downloading) ...[
               const SizedBox(height: 12),
-              LinearProgressIndicator(value: progress),
+              LinearProgressIndicator(value: progress > 0 ? progress : null),
             ],
             if (!installed && !downloading) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => provisioningService.provision([modelDef]),
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('Download'),
+                  onPressed: deleted
+                      ? () => manager.redownloadModel(entry.id)
+                      : () => manager.downloadModel(modelDef),
+                  icon: Icon(deleted ? Icons.refresh : Icons.download, size: 18),
+                  label: Text(deleted ? 'Re-download' : 'Download'),
                 ),
               ),
             ],
@@ -375,7 +544,7 @@ class _CatalogModelTile extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => provisioningService.retry(modelDef),
+                  onPressed: () => manager.retryDownload(entry.id),
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Retry'),
                 ),
@@ -387,9 +556,9 @@ class _CatalogModelTile extends StatelessWidget {
     );
   }
 
-
-
-  Widget _buildStatusColumn(BuildContext context, ColorScheme colorScheme, bool installed, bool downloading, bool failed, double progress, int? retryAttempt) {
+  Widget _buildStatusColumn(BuildContext context, ColorScheme colorScheme,
+      bool installed, bool downloading, bool failed, bool deleted,
+      double progress, int? retryAttempt) {
     if (installed) {
       return Column(
         children: [
@@ -422,6 +591,15 @@ class _CatalogModelTile extends StatelessWidget {
         ],
       );
     }
+    if (deleted) {
+      return Column(
+        children: [
+          Icon(Icons.delete_outline, color: colorScheme.outline, size: 28),
+          const SizedBox(height: 4),
+          Text('Deleted', style: TextStyle(fontSize: 11, color: colorScheme.outline)),
+        ],
+      );
+    }
     return const SizedBox.shrink();
   }
 }
@@ -430,26 +608,27 @@ class _CatalogModelTile extends StatelessWidget {
 
 class _ModelTile extends StatelessWidget {
   final ModelDefinition model;
-  final ModelProvisioningState state;
+  final ModelManagerState mgrState;
   final bool isSelected;
   final VoidCallback onSelect;
-  final VoidCallback? onRetry;
+  final ModelManager manager;
 
   const _ModelTile({
     required this.model,
-    required this.state,
+    required this.mgrState,
     required this.isSelected,
     required this.onSelect,
-    this.onRetry,
+    required this.manager,
   });
 
   @override
   Widget build(BuildContext context) {
-    final installed = state.installed.contains(model.id);
-    final downloading = state.downloading.contains(model.id);
-    final failed = state.failed.contains(model.id);
-    final progress = state.progress[model.id] ?? 0.0;
-    final retryAttempt = state.retryAttempts[model.id];
+    final state = mgrState.modelStates[model.id] ?? ModelState.notDownloaded;
+    final installed = state == ModelState.downloaded;
+    final downloading = state == ModelState.downloading;
+    final failed = state == ModelState.failed;
+    final progress = mgrState.progress[model.id] ?? 0.0;
+    final retryAttempt = mgrState.retryAttempts[model.id];
     final colorScheme = Theme.of(context).colorScheme;
 
     IconData icon;
@@ -504,7 +683,17 @@ class _ModelTile extends StatelessWidget {
                   children: [
                     Text(model.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text(model.id, style: TextStyle(fontSize: 12, color: colorScheme.outline)),
+                    Row(
+                      children: [
+                        Text(model.id, style: TextStyle(fontSize: 12, color: colorScheme.outline)),
+                        const SizedBox(width: 8),
+                        if (mgrState.modelDiskBytes.containsKey(model.id))
+                          _InfoChip(
+                            icon: Icons.storage,
+                            label: _formatBytes(mgrState.modelDiskBytes[model.id]!),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -513,10 +702,30 @@ class _ModelTile extends StatelessWidget {
                     fontWeight: installed && isSelected ? FontWeight.bold : FontWeight.normal,
                     color: failed ? colorScheme.error : isSelected ? colorScheme.primary : null,
                   )),
-              if (failed && onRetry != null) ...[
+              if (installed) ...[
                 const SizedBox(width: 8),
-                IconButton(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 18),
-                    constraints: const BoxConstraints(), padding: EdgeInsets.zero),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: Icon(Icons.more_vert, size: 18, color: colorScheme.outline),
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _confirmDelete(context, colorScheme);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: 'delete', child: Text('Delete model')),
+                  ],
+                ),
+              ],
+              if (failed) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => manager.retryDownload(model.id),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
               ],
             ],
           ),
@@ -524,6 +733,126 @@ class _ModelTile extends StatelessWidget {
       ),
     );
   }
+
+  void _confirmDelete(BuildContext context, ColorScheme colorScheme) {
+    final diskBytes = mgrState.modelDiskBytes[model.id];
+    final sizeText = diskBytes != null ? _formatBytes(diskBytes) : null;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete model?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This will permanently remove "${model.name}" from your device. You can re-download it later.'),
+            if (sizeText != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.storage, size: 16, color: colorScheme.error),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$sizeText will be freed',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              manager.deleteModel(model.id);
+            },
+            child: Text('Delete', style: TextStyle(color: colorScheme.error)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Storage summary header ──────────────────────────────────
+
+class _StorageSummary extends StatelessWidget {
+  final int totalBytes;
+  final int modelCount;
+  final int freeDiskBytes;
+  const _StorageSummary({required this.totalBytes, required this.modelCount, required this.freeDiskBytes});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.storage, size: 20, color: cs.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Storage Usage',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$modelCount model${modelCount == 1 ? '' : 's'} · ${_formatBytes(totalBytes)} used',
+                  style: TextStyle(fontSize: 12, color: cs.outline),
+                ),
+                if (freeDiskBytes > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${_formatBytes(freeDiskBytes)} free on device',
+                    style: TextStyle(fontSize: 12, color: cs.outline),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Format bytes to human-readable string.
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
 // ── Info chip ────────────────────────────────────────────────
