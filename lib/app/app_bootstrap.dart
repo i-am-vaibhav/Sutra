@@ -1,3 +1,4 @@
+import 'package:sutra/core/feature_flags.dart';
 import 'package:sutra/core/logging/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,8 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap>
     Future.microtask(() async {
       await bootstrapModels(ref);
     });
+    // v1: Preload runtime in background (warm-up gated by FeatureFlag.modelWarmUp)
+    _preloadRuntimeIfNeeded(ref);
   }
 
   @override
@@ -59,5 +62,26 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap>
   @override
   Widget build(BuildContext context) {
     return const SutraApp();
+  }
+}
+
+/// Preload runtime in background. Warm-up generation is gated by
+/// [FeatureFlag.modelWarmUp] — when off (v1 default), the model is loaded
+/// but no warm-up prompt is sent, saving 2-5s on startup.
+Future<void> _preloadRuntimeIfNeeded(WidgetRef ref) async {
+  try {
+    final runtime = await ref.read(runtimeProvider.future);
+    final flags = ref.read(featureFlagsProvider);
+    if (runtime.isReady && flags.isEnabled(FeatureFlag.modelWarmUp)) {
+      Log.d('[AppBootstrap] Warm-up enabled — sending warm-up prompt');
+      await for (final _ in runtime.generateStream('Hi')) {
+        // Discard tokens — only trigger JIT/AOT compilation.
+      }
+      Log.d('[AppBootstrap] Warm-up completed');
+    } else if (runtime.isReady) {
+      Log.d('[AppBootstrap] Model loaded (warm-up skipped per feature flag)');
+    }
+  } catch (e) {
+    Log.w('[AppBootstrap] Runtime preload failed (non-fatal): $e');
   }
 }

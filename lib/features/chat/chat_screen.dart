@@ -13,6 +13,7 @@ import 'package:sutra/features/chat/widgets/model_status_bar.dart';
 import 'package:sutra/features/chat/widgets/quote_preview_bar.dart';
 import 'package:sutra/features/chat/widgets/thinking_indicator.dart';
 
+import 'package:sutra/core/feature_flags.dart';
 import 'package:sutra/core/logging/log.dart';
 import 'package:sutra/runtime/search/search_agent.dart';
 import 'package:sutra/runtime/search/search_result.dart';
@@ -597,7 +598,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
             ),
             QuotePreviewBar(colorScheme: colorScheme),
-            AttachmentBar(colorScheme: colorScheme),
+            if (ref.watch(featureFlagsProvider).isEnabled(FeatureFlag.fileAttachments))
+              AttachmentBar(colorScheme: colorScheme),
             _InputBar(
               chatState: chatState,
               searchState: ref.watch(webSearchProvider),
@@ -605,7 +607,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               theme: theme,
               controller: controller,
               onSend: sendMessage,
-              onAttach: _showAttachSheet,
+              onAttach: ref.watch(featureFlagsProvider).isEnabled(FeatureFlag.fileAttachments) ? _showAttachSheet : () {},
               onStopGeneration: () => ref.read(chatProvider.notifier).stopGeneration(),
               onCancelSearch: () => ref.read(webSearchProvider.notifier).cancelSearch(),
             ),
