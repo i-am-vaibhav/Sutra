@@ -33,8 +33,7 @@ class AssembledContext {
 }
 
 /// Handles all context assembly for message processing:
-/// model selection, memory retrieval (current + cross-session),
-/// file extraction, and prompt construction.
+/// model selection, memory retrieval, file extraction, and prompt construction.
 class ContextAssemblyService {
   final Ref _ref;
 
@@ -99,7 +98,7 @@ class ContextAssemblyService {
       );
     }
 
-    // ── Memory retrieval (current + cross-session) ───────
+    // ── Memory retrieval (session-scoped) ─────────────
     String? memoryText;
     if (contextSettings.conversationMemoryEnabled) {
       memoryText = await _retrieveMemory(memoryRepo, sessionId);
@@ -141,38 +140,15 @@ class ContextAssemblyService {
     );
   }
 
-  /// Retrieve memory text from current session + cross-session memories.
-  ///
-  /// Prefers the compressed summary; falls back to raw facts.
-  /// Also injects top-N cross-session memories for continuity.
+  /// Retrieve the top-N most important memories as prompt context.
+  /// Scoped to the current session only.
   Future<String?> _retrieveMemory(
     MemoryRepository memoryRepo,
     String sessionId,
   ) async {
-    final parts = <String>[];
-
-    // Current session memory (summary or raw)
-    final summary = await memoryRepo.getSummary(sessionId);
-    if (summary != null && summary.content.isNotEmpty) {
-      parts.add(summary.content);
-    } else {
-      final raw = await memoryRepo.top(limit: 5, sessionId: sessionId);
-      if (raw.isNotEmpty) {
-        parts.add(raw.map((m) => '- ${m.content}').join('\n'));
-      }
-    }
-
-    // Cross-session memory: top-N facts from OTHER sessions
-    final allMemories = await memoryRepo.top(limit: 3);
-    final crossSession = allMemories
-        .where((m) => m.sessionId != null && m.sessionId != sessionId)
-        .toList();
-    if (crossSession.isNotEmpty) {
-      parts.add('From other conversations:\n${crossSession.map((m) => '- ${m.content}').join('\n')}');
-    }
-
-    if (parts.isEmpty) return null;
-    return parts.join('\n\n');
+    final memories = await memoryRepo.top(limit: 5, sessionId: sessionId);
+    if (memories.isEmpty) return null;
+    return memories.map((m) => '- ${m.content}').join('\n');
   }
 
   /// Extract text content from attached files.

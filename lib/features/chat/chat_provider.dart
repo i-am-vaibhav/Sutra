@@ -13,6 +13,7 @@ import 'package:sutra/features/chat/model_selection.dart';
 import 'package:sutra/features/chat/title_generator.dart';
 import 'package:sutra/runtime/context/context_settings_provider.dart';
 import 'package:sutra/runtime/memory/memory_extractor.dart';
+import 'package:sutra/runtime/memory/memory_item.dart';
 import 'package:sutra/runtime/memory/memory_provider.dart';
 import 'package:sutra/runtime/models/model_registry.dart';
 import 'package:sutra/runtime/provisioning/model_manager_provider.dart';
@@ -366,7 +367,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final contextSettings = ref.read(contextSettingsProvider);
 
       final memoryText = contextSettings.conversationMemoryEnabled
-          ? (await memoryRepo.top(limit: 5))
+          ? (await memoryRepo.top(limit: 5, sessionId: sessionId))
               .map((m) => '- ${m.content}')
               .join('\n')
           : null;
@@ -487,7 +488,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final extractedMemories =
           memoryExtractor.extract(cleanedText, buffer);
       for (final memory in extractedMemories) {
-        await memoryRepo.add(memory);
+        await memoryRepo.add(MemoryItem(
+          id: memory.id,
+          content: memory.content,
+          createdAt: memory.createdAt,
+          importance: memory.importance,
+          sessionId: sessionId,
+        ));
       }
 
       final finalIndex = state.messages

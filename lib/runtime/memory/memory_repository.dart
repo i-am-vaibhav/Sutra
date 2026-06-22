@@ -23,6 +23,7 @@ class MemoryRepository {
         'content': item.content,
         'importance': item.importance,
         'createdAt': item.createdAt.millisecondsSinceEpoch,
+        'session_id': item.sessionId,
       },
     );
   }
@@ -34,9 +35,19 @@ class MemoryRepository {
     return rows.map(_fromRow).toList();
   }
 
-  /// Get the top-N most important memories.
-  Future<List<MemoryItem>> top({int limit = 10}) async {
+  /// Get the top-N most important memories, optionally scoped to a session.
+  Future<List<MemoryItem>> top({int limit = 10, String? sessionId}) async {
     final db = await _getDb();
+    if (sessionId != null) {
+      final rows = await db.query(
+        'memories',
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+        orderBy: 'importance DESC',
+        limit: limit,
+      );
+      return rows.map(_fromRow).toList();
+    }
     final rows = await db.query(
       'memories',
       orderBy: 'importance DESC',
@@ -63,6 +74,7 @@ class MemoryRepository {
       content: row['content'] as String,
       importance: (row['importance'] as num).toDouble(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(row['createdAt'] as int),
+      sessionId: row['session_id'] as String?,
     );
   }
 }

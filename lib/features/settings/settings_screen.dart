@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sutra/app/theme/theme_provider.dart';
-import 'package:sutra/core/feature_flags.dart';
 import 'package:sutra/core/widgets/info_row.dart';
 import 'package:sutra/runtime/context/context_settings.dart';
 import 'package:sutra/runtime/context/context_settings_provider.dart';
@@ -78,11 +77,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
           const SizedBox(height: 12),
           _WifiOnlyToggle(colorScheme: colorScheme),
-
-          const SizedBox(height: 24),
-
-          // ── Feature Flags ──
-          _FeatureFlagsSection(colorScheme: colorScheme),
 
           const SizedBox(height: 24),
 
@@ -440,92 +434,6 @@ class _UserProfileFieldsState extends ConsumerState<_UserProfileFields> {
       'Interests' => 'AI, photography, hiking',
       _ => 'anything else you want the model to know',
     };
-  }
-}
-
-// ── Feature Flags Section ──────────────────────────────────
-
-class _FeatureFlagsSection extends ConsumerWidget {
-  final ColorScheme colorScheme;
-  const _FeatureFlagsSection({required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final flags = ref.watch(featureFlagsProvider);
-    final notifier = ref.read(featureFlagsProvider.notifier);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.toggle_on, color: colorScheme.primary, size: 20),
-            const SizedBox(width: 8),
-            Text('Feature Flags',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Toggle advanced features on or off.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-        ),
-        const SizedBox(height: 12),
-        for (final flag in FeatureFlag.values)
-          _FeatureFlagTile(
-            flag: flag,
-            enabled: flags.isEnabled(flag),
-            onChanged: () => notifier.toggle(flag),
-            colorScheme: colorScheme,
-          ),
-      ],
-    );
-  }
-}
-
-class _FeatureFlagTile extends StatelessWidget {
-  final FeatureFlag flag;
-  final bool enabled;
-  final VoidCallback onChanged;
-  final ColorScheme colorScheme;
-
-  const _FeatureFlagTile({
-    required this.flag,
-    required this.enabled,
-    required this.onChanged,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(
-              enabled ? Icons.check_circle : Icons.circle_outlined,
-              size: 20,
-              color: enabled ? colorScheme.primary : colorScheme.outline,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(featureFlagName(flag),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(featureFlagDescription(flag),
-                      style: TextStyle(fontSize: 12, color: colorScheme.outline)),
-                ],
-              ),
-            ),
-            Switch(value: enabled, onChanged: (_) => onChanged()),
-          ],
-        ),
-      ),
-    );
   }
 }
 

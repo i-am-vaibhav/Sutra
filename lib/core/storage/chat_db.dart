@@ -17,7 +17,7 @@ class ChatDB {
 
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sessions (
@@ -52,9 +52,15 @@ class ChatDB {
             id TEXT PRIMARY KEY,
             content TEXT NOT NULL,
             importance REAL NOT NULL DEFAULT 0.5,
-            createdAt INTEGER NOT NULL
+            createdAt INTEGER NOT NULL,
+            session_id TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute("ALTER TABLE memories ADD COLUMN session_id TEXT");
+        }
       },
     );
 

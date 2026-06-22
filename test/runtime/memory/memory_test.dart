@@ -80,14 +80,15 @@ void main() {
       sharedDb = await databaseFactoryFfi.openDatabase(
         inMemoryDatabasePath,
         options: OpenDatabaseOptions(
-          version: 1,
+          version: 2,
           onCreate: (db, version) async {
             await db.execute('''
               CREATE TABLE memories (
                 id TEXT PRIMARY KEY,
                 content TEXT NOT NULL,
                 importance REAL NOT NULL DEFAULT 0.5,
-                createdAt INTEGER NOT NULL
+                createdAt INTEGER NOT NULL,
+                session_id TEXT
               )
             ''');
           },
