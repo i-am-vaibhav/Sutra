@@ -247,7 +247,7 @@ class _ContextSettingsSection extends ConsumerWidget {
 
         _FeatureToggle(
           title: 'Conversation Memory',
-          subtitle: 'Remember facts from past conversations across sessions',
+          subtitle: 'Remember facts from older conversations to improve continuity.',
           value: settings.conversationMemoryEnabled,
           onChanged: notifier.toggleConversationMemory,
           warning: settings.conversationMemoryEnabled
