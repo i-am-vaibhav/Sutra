@@ -158,7 +158,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // Auto mode: if a web search model is installed, automatically
     // route through web search without the user needing to toggle it.
-    final shouldSearch = searchEnabled || (isAutoMode && hasInstalledWebSearchModel(ref));
+    // Feature flag gates all web search — when disabled, always send as
+    // a normal chat message regardless of toggle state.
+    final webSearchFlagOn = ref.read(featureFlagsProvider).isEnabled(FeatureFlag.webSearch);
+    final shouldSearch = webSearchFlagOn && (searchEnabled || (isAutoMode && hasInstalledWebSearchModel(ref)));
 
     if (shouldSearch) {
       await _runWebSearch(text);
@@ -607,7 +610,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               theme: theme,
               controller: controller,
               onSend: sendMessage,
-              onAttach: ref.watch(featureFlagsProvider).isEnabled(FeatureFlag.fileAttachments) ? _showAttachSheet : () {},
+              onAttach: ref.watch(featureFlagsProvider).isEnabled(FeatureFlag.fileAttachments) ? _showAttachSheet : null,
               onStopGeneration: () => ref.read(chatProvider.notifier).stopGeneration(),
               onCancelSearch: () => ref.read(webSearchProvider.notifier).cancelSearch(),
             ),
@@ -765,7 +768,7 @@ class _InputBar extends StatelessWidget {
   final ThemeData theme;
   final TextEditingController controller;
   final VoidCallback onSend;
-  final VoidCallback onAttach;
+  final VoidCallback? onAttach;
   final VoidCallback onStopGeneration;
   final VoidCallback onCancelSearch;
 
@@ -776,7 +779,7 @@ class _InputBar extends StatelessWidget {
     required this.theme,
     required this.controller,
     required this.onSend,
-    required this.onAttach,
+    this.onAttach,
     required this.onStopGeneration,
     required this.onCancelSearch,
   });
@@ -797,22 +800,24 @@ class _InputBar extends StatelessWidget {
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
-                    shape: BoxShape.circle,
+              children:              [
+                if (onAttach != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: chatState.isModelLoading || searchState.isBusy ? null : onAttach,
+                      icon: Icon(Icons.add, color: colorScheme.onSurfaceVariant, size: 22),
+                      tooltip: 'Attach files',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
                   ),
-                  child: IconButton(
-                    onPressed: chatState.isModelLoading || searchState.isBusy ? null : onAttach,
-                    icon: Icon(Icons.add, color: colorScheme.onSurfaceVariant, size: 22),
-                    tooltip: 'Attach or search',
-                    padding: const EdgeInsets.all(6),
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  ),
-                ),
-                const SizedBox(width: 4),
+                  const SizedBox(width: 4),
+                ],
                 Expanded(
                   child: TextField(
                     controller: controller,

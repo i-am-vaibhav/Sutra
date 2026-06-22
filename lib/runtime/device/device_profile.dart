@@ -5,6 +5,8 @@ class DeviceProfile {
   final String gpuName;
   final String gpuFamily;
   final String platform;
+  final int? batteryPercent;
+  final double? temperatureC;
 
   DeviceProfile({
     required this.ramMB,
@@ -13,5 +15,7 @@ class DeviceProfile {
     required this.gpuName,
     required this.gpuFamily,
     required this.platform,
+    this.batteryPercent,
+    this.temperatureC,
   });
 }

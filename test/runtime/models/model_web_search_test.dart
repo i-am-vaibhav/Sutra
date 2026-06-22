@@ -1,52 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/models/model_registry.dart';
-import 'package:sutra/runtime/pipeline/chat_template.dart';
 
 void main() {
   group('ModelCapability.webSearch', () {
-    test('gemma3_1b has webSearch capability', () {
-      expect(ModelRegistry.gemma3_1b.supports(ModelCapability.webSearch), isTrue);
+    test('qwen35_4b has webSearch capability (8K ctx)', () {
+      expect(ModelRegistry.qwen35_4b.supports(ModelCapability.webSearch), isTrue);
     });
 
-    test('qwen3_4b has webSearch capability', () {
-      expect(ModelRegistry.qwen3_4b.supports(ModelCapability.webSearch), isTrue);
-    });
-
-    test('phi4Mini has webSearch capability', () {
-      expect(ModelRegistry.phi4Mini.supports(ModelCapability.webSearch), isTrue);
-    });
-
-    test('gemma3_4b has webSearch capability', () {
-      expect(ModelRegistry.gemma3_4b.supports(ModelCapability.webSearch), isTrue);
-    });
-
-    test('smolLM3 has webSearch capability', () {
-      expect(ModelRegistry.smolLM3.supports(ModelCapability.webSearch), isTrue);
-    });
-
-    test('ministral3b has webSearch capability', () {
-      expect(ModelRegistry.ministral3b.supports(ModelCapability.webSearch), isTrue);
-    });
-
-    test('qwen3_0_6b does NOT have webSearch capability (4K ctx)', () {
-      expect(ModelRegistry.qwen3_0_6b.supports(ModelCapability.webSearch), isFalse);
-    });
-
-    test('qwen3_1_7b does NOT have webSearch capability (4K ctx)', () {
-      expect(ModelRegistry.qwen3_1_7b.supports(ModelCapability.webSearch), isFalse);
-    });
-
-    test('llama32_1b does NOT have webSearch capability (4K ctx)', () {
-      expect(ModelRegistry.llama32_1b.supports(ModelCapability.webSearch), isFalse);
-    });
-
-    test('llama32_3b does NOT have webSearch capability (4K ctx)', () {
-      expect(ModelRegistry.llama32_3b.supports(ModelCapability.webSearch), isFalse);
-    });
-
-    test('qwen25Coder_3b does NOT have webSearch capability (4K ctx)', () {
-      expect(ModelRegistry.qwen25Coder_3b.supports(ModelCapability.webSearch), isFalse);
+    test('qwen35_0_8b does NOT have webSearch capability (4K ctx)', () {
+      expect(ModelRegistry.qwen35_0_8b.supports(ModelCapability.webSearch), isFalse);
     });
 
     test('models with ≥8K context always have webSearch capability', () {
@@ -123,32 +86,27 @@ void main() {
     });
   });
 
-  group('Web search model count', () {
-    test('exactly 6 out of 10 models have webSearch capability', () {
+  group('Web search model count (v1: 4 Qwen3.5 models)', () {
+    test('3 out of 4 models have webSearch capability', () {
       final webSearchModels = ModelRegistry.all
           .where((m) => m.supports(ModelCapability.webSearch))
           .toList();
-      expect(webSearchModels.length, 6);
+      expect(webSearchModels.length, 3);
     });
 
-    test('web search models span small and medium size tiers', () {
-      final webSearchModels = ModelRegistry.all
-          .where((m) => m.supports(ModelCapability.webSearch))
-          .toList();
-      final sizes = webSearchModels.map((m) => m.size).toSet();
-      expect(sizes, contains(ModelSize.small));
-      expect(sizes, contains(ModelSize.medium));
+    test('qwen35_0_8b is the auto-downloaded tiny chat model (no web search)', () {
+      expect(ModelRegistry.qwen35_0_8b.size, ModelSize.tiny);
+      expect(ModelRegistry.qwen35_0_8b.supports(ModelCapability.webSearch), isFalse);
     });
 
-    test('qwen3_0_6b is the auto-downloaded tiny chat model (no web search)', () {
-      expect(ModelRegistry.qwen3_0_6b.size, ModelSize.tiny);
-      expect(ModelRegistry.qwen3_0_6b.supports(ModelCapability.webSearch), isFalse);
+    test('qwen35_4b is a web search model', () {
+      expect(ModelRegistry.qwen35_4b.supports(ModelCapability.webSearch), isTrue);
+      expect(ModelRegistry.qwen35_4b.contextLength, 8192);
     });
 
-    test('gemma3_1b is the auto-downloaded web search model', () {
-      expect(ModelRegistry.gemma3_1b.size, ModelSize.small);
-      expect(ModelRegistry.gemma3_1b.supports(ModelCapability.webSearch), isTrue);
-      expect(ModelRegistry.gemma3_1b.contextLength, 8192);
+    test('qwen35_9b is a web search model', () {
+      expect(ModelRegistry.qwen35_9b.supports(ModelCapability.webSearch), isTrue);
+      expect(ModelRegistry.qwen35_9b.contextLength, 16384);
     });
   });
 

@@ -6,6 +6,7 @@ import 'package:sutra/app/app.dart';
 import 'package:sutra/app/bootstrap.dart';
 import 'package:sutra/runtime/llm/llama_cpp_runtime.dart';
 import 'package:sutra/runtime/pipeline/runtime_provider.dart';
+import 'package:sutra/runtime/provisioning/model_update_provider.dart';
 
 class AppBootstrap extends ConsumerStatefulWidget {
   const AppBootstrap({super.key});
@@ -39,6 +40,8 @@ class _AppBootstrapState extends ConsumerState<AppBootstrap>
 
     Future.microtask(() async {
       await bootstrapModels(ref);
+      // Start daily model update checks after provisioning is complete.
+      ref.read(modelUpdateProvider.notifier).init();
     });
     // v1: Preload runtime in background (warm-up gated by FeatureFlag.modelWarmUp)
     _preloadRuntimeIfNeeded(ref);

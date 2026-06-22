@@ -81,4 +81,11 @@ class ModelCatalogCategory {
       entries: entries,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'icon': icon,
+        'description': description,
+        'entries': entries.map((e) => e.toJson()).toList(),
+      };
 }

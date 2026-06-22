@@ -87,14 +87,8 @@ class ModelCatalogService {
   ChatTemplate _detectTemplate(String hint) {
     final h = hint.toLowerCase();
     if (h.contains('qwen')) return const QwenChatTemplate();
-    if (h.contains('llama3') || h.contains('llama-3')) {
-      return const Llama3ChatTemplate();
-    }
-    if (h.contains('phi')) return const Phi3ChatTemplate();
-    if (h.contains('gemma')) return const GemmaChatTemplate();
-    if (h.contains('mistral') || h.contains('ministral')) {
-      return const MistralChatTemplate();
-    }
+    // v2: Add back Llama3/Phi3/Gemma/Mistral templates when those models
+    // are re-added to the registry.
     return const GenericChatTemplate();
   }
 

@@ -16,12 +16,19 @@ class ModelCatalog {
     return ModelCatalog(categories: cats);
   }
 
+  Map<String, dynamic> toJson() => {
+        'categories': categories.map((c) => c.toJson()).toList(),
+      };
+
   /// All entries across all categories.
   List<ModelCatalogEntry> get allEntries =>
       categories.expand((c) => c.entries).toList();
 
   /// Hardcoded fallback catalog embedded in the app.
-  /// Updated with latest 2025-2026 models and task-specific categories.
+  ///
+  /// Ships with the Qwen3.5 series — the latest multimodal models
+  /// with early-fusion training on text, images, and visual logic.
+  /// Updated daily via [ModelUpdateService].
   static const ModelCatalog fallback = ModelCatalog(categories: [
     // ── Speed ──────────────────────────────────────────────
     ModelCatalogCategory(
@@ -30,44 +37,28 @@ class ModelCatalog {
       description: 'Ultra-responsive models for quick tasks on any device',
       entries: [
         ModelCatalogEntry(
-          id: 'qwen3-0.6b',
-          name: 'Qwen 3 0.6B Instruct',
-          description: 'Ultra-compact with surprising quality. Perfect for simple Q&A, sentiment checks, and entity extraction.',
+          id: 'qwen3.5-0.8b',
+          name: 'Qwen 3.5 0.8B',
+          description:
+              'Ultra-compact latest-gen model. Perfect for simple Q&A, sentiment checks, and entity extraction on any device.',
           category: 'fast',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-Instruct-GGUF/resolve/main/Qwen_Qwen3-0.6B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-0.6b.gguf',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-0.8b.gguf',
           contextLength: 4096,
           chatTemplateHint: 'qwen',
         ),
         ModelCatalogEntry(
-          id: 'qwen3-1.7b',
-          name: 'Qwen 3 1.7B Instruct',
-          description: 'Best balance of speed and quality under 2B. Strong at intent recognition and entity extraction.',
+          id: 'qwen3.5-2b',
+          name: 'Qwen 3.5 2B',
+          description:
+              'Small but highly capable. Best balance of speed and quality under 3B with 8K context for web search.',
           category: 'fast',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-Instruct-GGUF/resolve/main/Qwen_Qwen3-1.7B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-1.7b.gguf',
-          contextLength: 4096,
-          chatTemplateHint: 'qwen',
-        ),
-        ModelCatalogEntry(
-          id: 'gemma-3-1b-it',
-          name: 'Gemma 3 1B Instruct',
-          description: 'Google\'s mobile-optimized model. Great reasoning for its size.',
-          category: 'fast',
-          downloadUrl: 'https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q4_K_M.gguf',
-          localPath: 'gemma-3-1b.gguf',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/Qwen_Qwen3.5-2B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-2b.gguf',
           contextLength: 8192,
-          chatTemplateHint: 'gemma',
-        ),
-        ModelCatalogEntry(
-          id: 'llama-3.2-1b-instruct',
-          name: 'Llama 3.2 1B Instruct',
-          description: 'Meta\'s smallest Llama. Best tool-use support at this size.',
-          category: 'fast',
-          downloadUrl: 'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-          localPath: 'llama-3.2-1b.gguf',
-          contextLength: 4096,
-          chatTemplateHint: 'llama3',
+          chatTemplateHint: 'qwen',
         ),
       ],
     ),
@@ -75,104 +66,63 @@ class ModelCatalog {
     ModelCatalogCategory(
       name: 'Chat & General',
       icon: 'chat',
-      description: 'Best all-rounders for conversation, dialogue management, and general tasks',
+      description:
+          'Best all-rounders for conversation, dialogue management, and general tasks',
       entries: [
         ModelCatalogEntry(
-          id: 'qwen3-4b',
-          name: 'Qwen 3 4B Instruct',
-          description: 'Latest gen with dual-mode thinking. Excels at NLU, sentiment analysis, and contextual dialogue.',
+          id: 'qwen3.5-4b',
+          name: 'Qwen 3.5 4B',
+          description:
+              'Balanced performance with dual-mode thinking. Excellent at NLU, sentiment analysis, and contextual dialogue.',
           category: 'chat',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-4b.gguf',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-4b.gguf',
           contextLength: 8192,
           chatTemplateHint: 'qwen',
         ),
         ModelCatalogEntry(
-          id: 'phi-4-mini',
-          name: 'Phi-4 Mini Instruct',
-          description: 'Microsoft\'s best reasoning per parameter. Strong at summarization, QA, and text analysis.',
+          id: 'qwen3.5-9b',
+          name: 'Qwen 3.5 9B',
+          description:
+              'High-quality reasoning with 16K context. Best for complex multi-step tasks on high-end devices (8GB+ RAM).',
           category: 'chat',
-          downloadUrl: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
-          localPath: 'phi-4-mini.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'phi3',
-        ),
-        ModelCatalogEntry(
-          id: 'gemma-3-4b-it',
-          name: 'Gemma 3 4B Instruct',
-          description: 'Google\'s multimodal model. Excellent for text understanding, entity extraction, and function calling.',
-          category: 'chat',
-          downloadUrl: 'https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf',
-          localPath: 'gemma-3-4b.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'gemma',
-        ),
-        ModelCatalogEntry(
-          id: 'smollm3-3b',
-          name: 'SmolLM3 3B',
-          description: 'Fully open by HuggingFace. Good at intent recognition and adaptive responses.',
-          category: 'chat',
-          downloadUrl: 'https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/resolve/main/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
-          localPath: 'smollm3-3b.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'llama3',
-        ),
-        ModelCatalogEntry(
-          id: 'ministral-3b',
-          name: 'Ministral 3B Instruct',
-          description: 'Mistral\'s edge-optimized model. Fast with structured output for entity extraction.',
-          category: 'chat',
-          downloadUrl: 'https://huggingface.co/bartowski/mistralai_Ministral-3-3B-Instruct-GGUF/resolve/main/mistralai_Ministral-3-3B-Instruct-Q4_K_M.gguf',
-          localPath: 'ministral-3b.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'mistral',
-        ),
-        ModelCatalogEntry(
-          id: 'llama-3.2-3b-instruct',
-          name: 'Llama 3.2 3B Instruct',
-          description: 'Meta\'s 3B. Excellent for dialogue management and context-aware responses.',
-          category: 'chat',
-          downloadUrl: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-          localPath: 'llama-3.2-3b.gguf',
-          contextLength: 4096,
-          chatTemplateHint: 'llama3',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF/resolve/main/Qwen_Qwen3.5-9B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-9b.gguf',
+          contextLength: 16384,
+          chatTemplateHint: 'qwen',
         ),
       ],
     ),
-    // ── Translation ────────────────────────────────────────
+    // ── Web Search ────────────────────────────────────────
     ModelCatalogCategory(
-      name: 'Translation',
-      icon: 'translate',
-      description: 'Strong multilingual support for text translation between languages',
+      name: 'Web Search',
+      icon: 'search',
+      description: 'Models optimized for web search context and retrieval',
       entries: [
         ModelCatalogEntry(
-          id: 'qwen3-4b-translation',
-          name: 'Qwen 3 4B (Multilingual)',
-          description: 'Excels at 29+ languages. Best for English, Chinese, Japanese, Korean, and European translations.',
-          category: 'translation',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-4b.gguf',
+          id: 'qwen3.5-4b-search',
+          name: 'Qwen 3.5 4B (Search)',
+          description:
+              'Best for web search integration. 8K context handles search snippets and multi-source answers.',
+          category: 'search',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-4b.gguf',
           contextLength: 8192,
           chatTemplateHint: 'qwen',
         ),
         ModelCatalogEntry(
-          id: 'gemma-3-4b-translation',
-          name: 'Gemma 3 4B (Multilingual)',
-          description: 'Google\'s multilingual model. Strong at European and Asian language pairs.',
-          category: 'translation',
-          downloadUrl: 'https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf',
-          localPath: 'gemma-3-4b.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'gemma',
-        ),
-        ModelCatalogEntry(
-          id: 'qwen3-1.7b-translation',
-          name: 'Qwen 3 1.7B (Quick Translation)',
-          description: 'Fast lightweight translation. Great for quick language swaps on low-end devices.',
-          category: 'translation',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-Instruct-GGUF/resolve/main/Qwen_Qwen3-1.7B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-1.7b.gguf',
-          contextLength: 4096,
+          id: 'qwen3.5-9b-search',
+          name: 'Qwen 3.5 9B (Search)',
+          description:
+              'Maximum quality for web search. 16K context for complex multi-source research tasks.',
+          category: 'search',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF/resolve/main/Qwen_Qwen3.5-9B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-9b.gguf',
+          contextLength: 16384,
           chatTemplateHint: 'qwen',
         ),
       ],
@@ -181,102 +131,64 @@ class ModelCatalog {
     ModelCatalogCategory(
       name: 'Summarization & Analysis',
       icon: 'summarize',
-      description: 'Generate concise summaries, analyze text, and extract key information',
+      description:
+          'Generate concise summaries, analyze text, and extract key information',
       entries: [
         ModelCatalogEntry(
-          id: 'phi-4-mini-summary',
-          name: 'Phi-4 Mini (Analysis Focus)',
-          description: 'Best reasoning per parameter. Ideal for summarization, text analysis, and information extraction.',
+          id: 'qwen3.5-4b-analysis',
+          name: 'Qwen 3.5 4B (Analysis)',
+          description:
+              'Dual-mode thinking for deep analysis. Excellent at summarization and key point extraction.',
           category: 'summarization',
-          downloadUrl: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
-          localPath: 'phi-4-mini.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'phi3',
-        ),
-        ModelCatalogEntry(
-          id: 'qwen3-4b-summary',
-          name: 'Qwen 3 4B (Analysis Focus)',
-          description: 'Dual-mode thinking for deep analysis. Excellent at summarization and key point extraction.',
-          category: 'summarization',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-4b.gguf',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-4b.gguf',
           contextLength: 8192,
           chatTemplateHint: 'qwen',
         ),
         ModelCatalogEntry(
-          id: 'qwen3-1.7b-summary',
-          name: 'Qwen 3 1.7B (Quick Summary)',
-          description: 'Fast summarization for short texts. Good for quick bullet-point summaries.',
+          id: 'qwen3.5-9b-analysis',
+          name: 'Qwen 3.5 9B (Analysis)',
+          description:
+              'Maximum quality for long document analysis. 16K context handles full articles and research papers.',
           category: 'summarization',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-Instruct-GGUF/resolve/main/Qwen_Qwen3-1.7B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-1.7b.gguf',
-          contextLength: 4096,
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF/resolve/main/Qwen_Qwen3.5-9B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-9b.gguf',
+          contextLength: 16384,
           chatTemplateHint: 'qwen',
         ),
       ],
     ),
-    // ── Knowledge & QA ─────────────────────────────────────
+    // ── Translation ────────────────────────────────────────
     ModelCatalogCategory(
-      name: 'Knowledge & QA',
-      icon: 'school',
-      description: 'Answer specific questions and provide information from general knowledge',
+      name: 'Translation',
+      icon: 'translate',
+      description:
+          'Strong multilingual support for text translation between languages',
       entries: [
         ModelCatalogEntry(
-          id: 'phi-4-mini-qa',
-          name: 'Phi-4 Mini (QA Focus)',
-          description: 'Trained on high-quality synthetic data. Excellent at factual questions and detailed answers.',
-          category: 'qa',
-          downloadUrl: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
-          localPath: 'phi-4-mini.gguf',
-          contextLength: 8192,
-          chatTemplateHint: 'phi3',
-        ),
-        ModelCatalogEntry(
-          id: 'qwen3-4b-qa',
-          name: 'Qwen 3 4B (Knowledge Focus)',
-          description: 'Widest knowledge base under 4B. Strong at factual recall and multi-hop reasoning.',
-          category: 'qa',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen3-4b.gguf',
+          id: 'qwen3.5-4b-translation',
+          name: 'Qwen 3.5 4B (Multilingual)',
+          description:
+              'Excels at 29+ languages. Best for English, Chinese, Japanese, Korean, and European translations.',
+          category: 'translation',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-4b.gguf',
           contextLength: 8192,
           chatTemplateHint: 'qwen',
         ),
         ModelCatalogEntry(
-          id: 'llama-3.2-3b-qa',
-          name: 'Llama 3.2 3B (Knowledge Focus)',
-          description: 'Meta\'s broad training data. Good general knowledge and factual accuracy.',
-          category: 'qa',
-          downloadUrl: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-          localPath: 'llama-3.2-3b.gguf',
-          contextLength: 4096,
-          chatTemplateHint: 'llama3',
-        ),
-      ],
-    ),
-    // ── Code ───────────────────────────────────────────────
-    ModelCatalogCategory(
-      name: 'Code',
-      icon: 'code',
-      description: 'Specialized for code generation, debugging, and programming tasks',
-      entries: [
-        ModelCatalogEntry(
-          id: 'qwen2.5-coder-1.5b',
-          name: 'Qwen 2.5 Coder 1.5B',
-          description: 'Code-specialized. Supports 90+ programming languages. Fast code generation.',
-          category: 'coding',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen2.5-coder-1.5b.gguf',
-          contextLength: 4096,
-          chatTemplateHint: 'qwen',
-        ),
-        ModelCatalogEntry(
-          id: 'qwen2.5-coder-3b',
-          name: 'Qwen 2.5 Coder 3B',
-          description: 'Best code model for mobile. Complex programming, debugging, refactoring.',
-          category: 'coding',
-          downloadUrl: 'https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf',
-          localPath: 'qwen2.5-coder-3b.gguf',
-          contextLength: 4096,
+          id: 'qwen3.5-2b-translation',
+          name: 'Qwen 3.5 2B (Quick Translation)',
+          description:
+              'Fast lightweight translation. Great for quick language swaps on low-end devices.',
+          category: 'translation',
+          downloadUrl:
+              'https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/Qwen_Qwen3.5-2B-Q4_K_M.gguf',
+          localPath: 'qwen3.5-2b.gguf',
+          contextLength: 8192,
           chatTemplateHint: 'qwen',
         ),
       ],
