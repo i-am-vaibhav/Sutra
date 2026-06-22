@@ -7,151 +7,75 @@ const _noCapabilities = <ModelCapability>{};
 
 /// Central registry of built-in models that ship with the app.
 ///
-/// Models are organized by size tier. The [all] list is ordered
-/// smallest-first so provisioning downloads the lightest models first.
+/// v1: Ship with Qwen3.5 series — the latest multimodal models trained on
+/// 2026 data. Models are sized for mobile deployment with RAM-appropriate
+/// context lengths.
 class ModelRegistry {
-  // ── Ultra-Light (< 1B) ──────────────────────────────────
-
-  static const qwen3_0_6b = ModelDefinition(
-    id: 'qwen3-0.6b',
-    name: 'Qwen 3 0.6B Instruct',
+  /// Qwen3.5-0.8B — Ultra-lightweight, runs on any device.
+  /// ~580MB Q4_K_M, 4K context for basic chat.
+  static const qwen35_0_8b = ModelDefinition(
+    id: 'qwen3.5-0.8b',
+    name: 'Qwen 3.5 0.8B',
     size: ModelSize.tiny,
     contextLength: 4096,
-    downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-Instruct-GGUF/resolve/main/Qwen_Qwen3-0.6B-Instruct-Q4_K_M.gguf',
-    localPath: 'qwen3-0.6b.gguf',
+    downloadUrl:
+        'https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf',
+    localPath: 'qwen3.5-0.8b.gguf',
     chatTemplate: QwenChatTemplate(),
     capabilities: _noCapabilities,
+    fileSizeBytes: 580000000,
   );
 
-  // ── Light (1-2B) ────────────────────────────────────────
-
-  static const qwen3_1_7b = ModelDefinition(
-    id: 'qwen3-1.7b',
-    name: 'Qwen 3 1.7B Instruct',
-    size: ModelSize.small,
-    contextLength: 4096,
-    downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-Instruct-GGUF/resolve/main/Qwen_Qwen3-1.7B-Instruct-Q4_K_M.gguf',
-    localPath: 'qwen3-1.7b.gguf',
-    chatTemplate: QwenChatTemplate(),
-    capabilities: _noCapabilities,
-  );
-
-  static const gemma3_1b = ModelDefinition(
-    id: 'gemma-3-1b-it',
-    name: 'Gemma 3 1B Instruct',
+  /// Qwen3.5-2B — Small but capable, 8K context for web search.
+  /// ~1.4GB Q4_K_M, suitable for 2GB+ RAM devices.
+  static const qwen35_2b = ModelDefinition(
+    id: 'qwen3.5-2b',
+    name: 'Qwen 3.5 2B',
     size: ModelSize.small,
     contextLength: 8192,
-    downloadUrl: 'https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q4_K_M.gguf',
-    localPath: 'gemma-3-1b.gguf',
-    chatTemplate: GemmaChatTemplate(),
-    capabilities: _webSearchCap,
-  );
-
-  static const llama32_1b = ModelDefinition(
-    id: 'llama-3.2-1b-instruct',
-    name: 'Llama 3.2 1B Instruct',
-    size: ModelSize.small,
-    contextLength: 4096,
-    downloadUrl: 'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-    localPath: 'llama-3.2-1b.gguf',
-    chatTemplate: Llama3ChatTemplate(),
-    capabilities: _noCapabilities,
-  );
-
-  // ── Standard (3-4B) ─────────────────────────────────────
-
-  static const qwen3_4b = ModelDefinition(
-    id: 'qwen3-4b',
-    name: 'Qwen 3 4B Instruct',
-    size: ModelSize.medium,
-    contextLength: 8192,
-    downloadUrl: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-Q4_K_M.gguf',
-    localPath: 'qwen3-4b.gguf',
+    downloadUrl:
+        'https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/Qwen_Qwen3.5-2B-Q4_K_M.gguf',
+    localPath: 'qwen3.5-2b.gguf',
     chatTemplate: QwenChatTemplate(),
     capabilities: _webSearchCap,
+    fileSizeBytes: 1400000000,
   );
 
-  static const phi4Mini = ModelDefinition(
-    id: 'phi-4-mini',
-    name: 'Phi-4 Mini Instruct',
+  /// Qwen3.5-4B — Balanced performance, 8K context.
+  /// ~3.0GB Q4_K_M, suitable for 4GB+ RAM devices.
+  static const qwen35_4b = ModelDefinition(
+    id: 'qwen3.5-4b',
+    name: 'Qwen 3.5 4B',
     size: ModelSize.medium,
     contextLength: 8192,
-    downloadUrl: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
-    localPath: 'phi-4-mini.gguf',
-    chatTemplate: Phi3ChatTemplate(),
-    capabilities: _webSearchCap,
-  );
-
-  static const gemma3_4b = ModelDefinition(
-    id: 'gemma-3-4b-it',
-    name: 'Gemma 3 4B Instruct',
-    size: ModelSize.medium,
-    contextLength: 8192,
-    downloadUrl: 'https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf',
-    localPath: 'gemma-3-4b.gguf',
-    chatTemplate: GemmaChatTemplate(),
-    capabilities: _webSearchCap,
-  );
-
-  static const smolLM3 = ModelDefinition(
-    id: 'smollm3-3b',
-    name: 'SmolLM3 3B',
-    size: ModelSize.medium,
-    contextLength: 8192,
-    downloadUrl: 'https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/resolve/main/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
-    localPath: 'smollm3-3b.gguf',
-    chatTemplate: Llama3ChatTemplate(),
-    capabilities: _webSearchCap,
-  );
-
-  static const ministral3b = ModelDefinition(
-    id: 'ministral-3b',
-    name: 'Ministral 3B Instruct',
-    size: ModelSize.medium,
-    contextLength: 8192,
-    downloadUrl: 'https://huggingface.co/bartowski/mistralai_Ministral-3-3B-Instruct-GGUF/resolve/main/mistralai_Ministral-3-3B-Instruct-Q4_K_M.gguf',
-    localPath: 'ministral-3b.gguf',
-    chatTemplate: MistralChatTemplate(),
-    capabilities: _webSearchCap,
-  );
-
-  static const llama32_3b = ModelDefinition(
-    id: 'llama-3.2-3b-instruct',
-    name: 'Llama 3.2 3B Instruct',
-    size: ModelSize.medium,
-    contextLength: 4096,
-    downloadUrl: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-    localPath: 'llama-3.2-3b.gguf',
-    chatTemplate: Llama3ChatTemplate(),
-    capabilities: _noCapabilities,
-  );
-
-  // ── Code-specialized ─────────────────────────────────────
-
-  static const qwen25Coder_3b = ModelDefinition(
-    id: 'qwen2.5-coder-3b',
-    name: 'Qwen 2.5 Coder 3B',
-    size: ModelSize.medium,
-    contextLength: 4096,
-    downloadUrl: 'https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf',
-    localPath: 'qwen2.5-coder-3b.gguf',
+    downloadUrl:
+        'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf',
+    localPath: 'qwen3.5-4b.gguf',
     chatTemplate: QwenChatTemplate(),
-    capabilities: _noCapabilities,
+    capabilities: _webSearchCap,
+    fileSizeBytes: 3010000000,
+  );
+
+  /// Qwen3.5-9B — High quality, 16K context for complex tasks.
+  /// ~6.2GB Q4_K_M, requires 8GB+ RAM (high-end phones only).
+  static const qwen35_9b = ModelDefinition(
+    id: 'qwen3.5-9b',
+    name: 'Qwen 3.5 9B',
+    size: ModelSize.large,
+    contextLength: 16384,
+    downloadUrl:
+        'https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF/resolve/main/Qwen_Qwen3.5-9B-Q4_K_M.gguf',
+    localPath: 'qwen3.5-9b.gguf',
+    chatTemplate: QwenChatTemplate(),
+    capabilities: _webSearchCap,
+    fileSizeBytes: 6170000000,
   );
 
   /// All built-in chat models, ordered smallest-first for provisioning.
-  /// Code-specialized models (qwen25Coder_3b) are excluded to avoid
-  /// auto-selecting them for general chat prompts.
   static const all = [
-    qwen3_0_6b,        // 0.6B
-    qwen3_1_7b,        // 1.7B
-    gemma3_1b,         // 1B
-    llama32_1b,        // 1B
-    smolLM3,           // 3B
-    ministral3b,        // 3B
-    llama32_3b,        // 3B
-    qwen3_4b,          // 4B
-    phi4Mini,           // 3.8B
-    gemma3_4b,         // 4B
+    qwen35_0_8b,
+    qwen35_2b,
+    qwen35_4b,
+    qwen35_9b,
   ];
 }

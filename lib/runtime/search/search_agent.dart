@@ -69,10 +69,11 @@ class SearchAgent {
     WebSearchService? searchService,
     PageFetcher? fetcher,
     ContentExtractor? extractor,
-    required this._llmStream,
+    required Stream<String> Function(String prompt) llmStream,
   })  : _searchService = searchService ?? WebSearchService(),
         _fetcher = fetcher ?? PageFetcher(),
-        _extractor = extractor ?? ContentExtractor();
+        _extractor = extractor ?? ContentExtractor(),
+        _llmStream = llmStream;
 
   /// Process a user query through the full search-and-answer pipeline.
   ///

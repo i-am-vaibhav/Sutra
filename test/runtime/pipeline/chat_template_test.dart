@@ -39,50 +39,6 @@ void main() {
     });
   });
 
-  group('Phi3ChatTemplate', () {
-    test('formats with end tokens', () {
-      const t = Phi3ChatTemplate();
-      final result = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi');
-      expect(result, contains('<|system|>'));
-      expect(result, contains('<|end|>'));
-      expect(result, contains('<|user|>'));
-      expect(result, contains('<|assistant|>'));
-    });
-  });
-
-  group('GemmaChatTemplate', () {
-    test('formats with start_of_turn tokens', () {
-      const t = GemmaChatTemplate();
-      final result = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi');
-      expect(result, contains('<start_of_turn>user'));
-      expect(result, contains('<end_of_turn>'));
-      expect(result, contains('<start_of_turn>model'));
-    });
-
-    test('includes memory in system turn', () {
-      const t = GemmaChatTemplate();
-      final result = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi', memoryText: 'memory');
-      expect(result, contains('Relevant memory:'));
-    });
-  });
-
-  group('Llama3ChatTemplate', () {
-    test('formats with begin_of_text and header tokens', () {
-      const t = Llama3ChatTemplate();
-      final result = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi');
-      expect(result, contains('<|begin_of_text|>'));
-      expect(result, contains('<|start_header_id|>system'));
-      expect(result, contains('<|eot_id|>'));
-    });
-
-    test('includes memory in system prompt', () {
-      const t = Llama3ChatTemplate();
-      final result = t.formatPrompt(systemPrompt: 'sys', history: [], userMessage: 'Hi', memoryText: 'info');
-      expect(result, contains('Relevant memory:'));
-      expect(result, contains('info'));
-    });
-  });
-
   group('GenericChatTemplate', () {
     test('formats with plain text tags', () {
       const t = GenericChatTemplate();

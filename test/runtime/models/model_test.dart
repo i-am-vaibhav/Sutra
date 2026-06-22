@@ -54,8 +54,8 @@ void main() {
       expect(ModelRegistry.all, isNotEmpty);
     });
 
-    test('all list contains expected number of models', () {
-      expect(ModelRegistry.all.length, 10);
+    test('all list contains 4 Qwen3.5 models', () {
+      expect(ModelRegistry.all.length, 4);
     });
 
     test('each model has a unique id', () {
@@ -81,24 +81,16 @@ void main() {
       }
     });
 
-    test('qwen3_0_6b is tiny size', () {
-      expect(ModelRegistry.qwen3_0_6b.size, ModelSize.tiny);
+    test('qwen35_0_8b is tiny size', () {
+      expect(ModelRegistry.qwen35_0_8b.size, ModelSize.tiny);
     });
 
-    test('qwen3_1_7b is small size', () {
-      expect(ModelRegistry.qwen3_1_7b.size, ModelSize.small);
+    test('qwen35_4b is medium size', () {
+      expect(ModelRegistry.qwen35_4b.size, ModelSize.medium);
     });
 
-    test('llama32_1b is small size', () {
-      expect(ModelRegistry.llama32_1b.size, ModelSize.small);
-    });
-
-    test('phi4Mini is medium size', () {
-      expect(ModelRegistry.phi4Mini.size, ModelSize.medium);
-    });
-
-    test('qwen3_4b is medium size', () {
-      expect(ModelRegistry.qwen3_4b.size, ModelSize.medium);
+    test('qwen35_9b is large size', () {
+      expect(ModelRegistry.qwen35_9b.size, ModelSize.large);
     });
 
     test('all models have chatTemplate assigned', () {
@@ -113,32 +105,52 @@ void main() {
         expect(model.contextLength, lessThanOrEqualTo(32768));
       }
     });
+
+    test('all models have fileSizeBytes set', () {
+      for (final model in ModelRegistry.all) {
+        expect(model.fileSizeBytes, isNotNull);
+        expect(model.fileSizeBytes!, greaterThan(0));
+      }
+    });
   });
 
   group('ModelPolicy', () {
-    test('returns exactly 2 models for any tier', () {
+    test('low tier returns 1 model (0.8B only)', () {
+      final models = ModelPolicy.required(DeviceTier.low);
+      expect(models.length, 1);
+      expect(models.first.id, 'qwen3.5-0.8b');
+    });
+
+    test('mid tier returns 2 models (0.8B + 2B)', () {
+      final models = ModelPolicy.required(DeviceTier.mid);
+      expect(models.length, 2);
+      final ids = models.map((m) => m.id).toSet();
+      expect(ids, containsAll({'qwen3.5-0.8b', 'qwen3.5-2b'}));
+    });
+
+    test('high tier returns 2 models (0.8B + 4B)', () {
+      final models = ModelPolicy.required(DeviceTier.high);
+      expect(models.length, 2);
+      final ids = models.map((m) => m.id).toSet();
+      expect(ids, containsAll({'qwen3.5-0.8b', 'qwen3.5-4b'}));
+    });
+
+    test('all tiers include the 0.8B model', () {
       for (final tier in DeviceTier.values) {
         final models = ModelPolicy.required(tier);
-        expect(models.length, 2, reason: 'Expected 2 models for $tier');
+        final ids = models.map((m) => m.id).toSet();
+        expect(ids, contains('qwen3.5-0.8b'),
+            reason: 'Tier $tier should include 0.8B');
       }
     });
 
-    test('includes tiny chat model (qwen3-0.6b)', () {
-      final models = ModelPolicy.required(DeviceTier.low);
-      final ids = models.map((m) => m.id).toSet();
-      expect(ids, contains('qwen3-0.6b'));
-    });
-
-    test('includes web search model (gemma-3-1b-it)', () {
-      final models = ModelPolicy.required(DeviceTier.low);
-      final ids = models.map((m) => m.id).toSet();
-      expect(ids, contains('gemma-3-1b-it'));
-    });
-
-    test('web search model has ≥8K context', () {
-      final models = ModelPolicy.required(DeviceTier.low);
-      final searchModel = models.firstWhere((m) => m.id == 'gemma-3-1b-it');
-      expect(searchModel.contextLength, greaterThanOrEqualTo(8192));
+    test('9B is never auto-provisioned', () {
+      for (final tier in DeviceTier.values) {
+        final models = ModelPolicy.required(tier);
+        final ids = models.map((m) => m.id).toSet();
+        expect(ids, isNot(contains('qwen3.5-9b')),
+            reason: 'Tier $tier should not auto-provision 9B');
+      }
     });
   });
 }

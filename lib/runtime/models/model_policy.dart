@@ -3,17 +3,30 @@ import 'package:sutra/runtime/models/model_definition.dart';
 import 'package:sutra/runtime/models/model_registry.dart';
 
 class ModelPolicy {
-  /// Returns the models that should be auto-provisioned on first launch.
+  /// Returns the models that should be auto-provisioned on first launch,
+  /// selected based on the device's RAM and capabilities.
   ///
-  /// Only two models are downloaded by default:
-  /// - One tiny model for basic chat (smallest available)
-  /// - One web search capable model (smallest with ≥8K context)
-  ///
-  /// Other models are available for the user to install manually.
+  /// - **Low** tier (< 3 GB RAM): 0.8B only — fits comfortably.
+  /// - **Mid** tier (3–6 GB RAM): 0.8B + 2B — good balance.
+  /// - **High** tier (≥ 6 GB RAM): 0.8B + 4B — best quality without
+  ///   risk of OOM. The 9B model is never auto-provisioned; users can
+  ///   install it manually from the catalog.
   static List<ModelDefinition> required(DeviceTier tier) {
-    return [
-      ModelRegistry.qwen3_0_6b,     // Tiny chat model (~0.6B)
-      ModelRegistry.gemma3_1b,      // Web search model (~1B, 8K context)
-    ];
+    switch (tier) {
+      case DeviceTier.low:
+        return [
+          ModelRegistry.qwen35_0_8b,
+        ];
+      case DeviceTier.mid:
+        return [
+          ModelRegistry.qwen35_0_8b,
+          ModelRegistry.qwen35_2b,
+        ];
+      case DeviceTier.high:
+        return [
+          ModelRegistry.qwen35_0_8b,
+          ModelRegistry.qwen35_4b,
+        ];
+    }
   }
 }
